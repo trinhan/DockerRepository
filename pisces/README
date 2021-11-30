@@ -1,0 +1,4 @@
+Instructions:
+Go to https://github.com/Illumina/Pisces
+Download the binaries folder containing the versions to be used.
+Build the docker file
