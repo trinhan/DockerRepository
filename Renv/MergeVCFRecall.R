@@ -19,7 +19,7 @@ MergeVCFRecall=function(vcffile,outputstr, genome='hg19',runMode='Paired', blat=
   print('Loading vcf sample of interest... ')
   BaseVcf=read.vcfR(vcffile)
   ponvcf=read.vcfR(pon)
-  
+
   ## Set the location and index values?
   BaseVcfID=paste(BaseVcf@fix[ ,1], BaseVcf@fix[ ,2], BaseVcf@fix[ ,4])
   ponVcfID=paste(ponvcf@fix[ ,1], ponvcf@fix[ ,2], ponvcf@fix[ ,4])
@@ -30,7 +30,6 @@ MergeVCFRecall=function(vcffile,outputstr, genome='hg19',runMode='Paired', blat=
   lx2=which(BaseVcfID %in% ponVcfID) # does not take into account indels
   BaseVcf@fix[lx2 ,7]=paste(BaseVcf@fix[lx2 ,7], "MutectPoN")
   rm(ponvcf)
-  
   if (blat!="NULL"){
     print('Process blat samples....')
     blatRm=read.delim(blat, sep="\t")
@@ -56,12 +55,16 @@ MergeVCFRecall=function(vcffile,outputstr, genome='hg19',runMode='Paired', blat=
     abra2VcfID=paste(abra2vcf@fix[ ,1], abra2vcf@fix[ ,2], abra2vcf@fix[ ,4])
     ##abra2VcfID2=paste(abra2vcf@fix[ ,1], abra2vcf@fix[ ,2])
     lx4=which(!BaseVcfID%in%abra2VcfID)
+    sprintf('%s variants are removed', length(lx4) )
     BaseVcf@fix[lx4 ,7]=paste(BaseVcf@fix[lx4 ,7], "abra2Fail")
     ## Do a quick count of the number of columns which have an entry
     lx5=which(!abra2VcfID%in%BaseVcfID)
-    tmp1=abra2vcf[lx5]
-    tmp1@fix[ ,7]="abra2PASS"
-    BaseVcf=rbind2(BaseVcf, tmp1)
+    sprintf('%s variants are new', length(lx5))
+    if (length(lx5)>1){
+      tmp1=abra2vcf[lx5]
+      tmp1@fix[ ,7]="abra2PASS"
+      BaseVcf=rbind2(BaseVcf, tmp1)
+    }
     rm(abra2vcf)
   }
   sprintf('There are %s variants processed. Writing to file....', nrow(BaseVcf))
@@ -77,15 +80,25 @@ MergeVCFRecall=function(vcffile,outputstr, genome='hg19',runMode='Paired', blat=
   MatA=matrix(tmpA, ncol=ncol(tmp2), nrow=nrow(tmp2))
   MatB=matrix(tmpB, ncol=ncol(tmp2), nrow=nrow(tmp2))
   if (runMode=="Paired"){
-    RefVal=rowMaxs(MatA[ , seq(2, ncol(MatA), by=2)])
-    TVal=rowMaxs(MatB[ , seq(2, ncol(MatA), by=2)])
+    RefVal=rowMaxs(MatA[ , seq(2, ncol(MatA), by=2)], na.rm=T)
+    TVal=rowMaxs(MatB[ , seq(2, ncol(MatA), by=2)], na.rm=T)
   }else{
-    RefVal=rowMaxs(MatA)
-    TVal=rowMaxs(MatB)    
+    RefVal=rowMaxs(MatA, na.rm=T)
+    TVal=rowMaxs(MatB, na.rm=T)    
   }
+  RefV=BaseVcf@fix[ ,4]
+  AltV=BaseVcf@fix[ ,5]
+  IndelJudge=ifelse(nchar(RefV)>nchar(AltV), "INS", ifelse(nchar(RefV)<nchar(AltV), "DEL", "SNP"))
+  yx=which(nchar(RefV)==nchar(AltV) & nchar(RefV)>1)
+  IndelJudge[yx]="MNP"
+  mx=which(RefV==".")
+  IndelJudge[mx]="INS"
+  nx=which(AltV==".")
+  IndelJudge[mx]="DEL"
   MafFile=data.frame('Hugo_Symbol'=NA, 'Chromosome'=BaseVcf@fix[ ,1], 'Start_position'=BaseVcf@fix[ ,2],
                       't_ref_count'=RefVal, 't_alt_count'=TVal, 'Reference_Allele'=BaseVcf@fix[ ,4],
-                      'Tumor_Seq_Allele2'=BaseVcf@fix[ ,5], 'judgement'='KEEP')
+                      'Tumor_Seq_Allele2'=BaseVcf@fix[ ,5],'Variant_Type'=IndelJudge,'judgement'='KEEP')
+  
   write.table(MafFile, file=paste(outputstr, ".judgement.maf", sep=""), row.names = F, quote = F)
 }
 
