@@ -53,16 +53,21 @@ vcf2MAF=function(vcffile,outputfile,sampleName, AAlist, protein=F, pfam, pirsf){
  
   ann <- extract.info(inputFile, element='CSQ', as.numeric=F)
   annsplit=sapply(ann, function(x) strsplit(x, "\\||,"))
-  yesgrep=sapply(annsplit, function(x) grep("^YES$", x)) ## need to make sure protein sequences are not grepped
-  tx=sapply(yesgrep, length)
-  
-  yesgrep2<-lapply(yesgrep, function(x) {ifelse(length(x)==0, x<-lxa, x); x})
-  tx2=sapply(yesgrep2, length)
+  names(annsplit)=paste("X",c(1:length(annsplit)))
+  csq3=do.call(rbind, annsplit)
+  colnames(csq3)=SNames[1:ncol(csq3)]
 
-  csq3=sapply(1:length(annsplit), function(x) annsplit[[x]][(yesgrep2[[x]][1]-lxa+1): (yesgrep2[[x]][1]+lxb)]) ## issue line 932
-  csq3=t(csq3)
-  colnames(csq3)=SNames
-  
+  # 
+  # yesgrep=sapply(annsplit, function(x) grep("^YES$", x)) ## need to make sure protein sequences are not grepped
+  # tx=sapply(yesgrep, length)
+  # 
+  # yesgrep2<-lapply(yesgrep, function(x) {ifelse(length(x)==0, x<-lxa, x); x})
+  # tx2=sapply(yesgrep2, length)
+  # 
+  # csq3=sapply(1:length(annsplit), function(x) annsplit[[x]][(yesgrep2[[x]][1]-lxa+1): (yesgrep2[[x]][1]+lxb)]) ## issue line 932
+  # csq3=t(csq3)
+  # colnames(csq3)=SNames
+  # 
 
   ## Pfam annotation:
     
@@ -124,7 +129,7 @@ vcf2MAF=function(vcffile,outputfile,sampleName, AAlist, protein=F, pfam, pirsf){
 }
 
 
-#vcffile="~/Downloads/abra2_vc/call-vep_ER099_MEL4.GRCh38_vep.vcf.gz" 
+#vcffile="~/Downloads/consensus_call-vep_MEL4_N.GRCh38_vep.vcf.gz" 
 #vcf2MAF(vcffile, "~/Downloads/abra2_vc/vepcall/rerun_protein.maf", sampleName =  "ER099_MEL4N", AAlist="~/Documents/ER_pilot/annotations/AminoAcid_table.csv",protein=T,pfam="~/Documents/ER_pilot/annotations/Pfam-A.clans.33.1.tsv", pirsf = "~/Documents/ER_pilot/annotations/pirsfinfo.cat")
 
 ##print(opts)
