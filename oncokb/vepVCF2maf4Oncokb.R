@@ -47,16 +47,12 @@ vcf2MAF=function(vcffile,outputfile,sampleName, AAlist, protein=F, pfam, pirsf){
   a1=inputFile@meta
   x1=a1[grep("CSQ", a1)]
   SNames=unlist(strsplit( substr(x1, regexpr(  "Format: *",x1)+8, nchar(x1)-2), "\\|"))
-  
-  lxa=which(SNames=="CANONICAL")
-  lxb=length(SNames)-lxa
  
   ann <- extract.info(inputFile, element='CSQ', as.numeric=F)
   annsplit=sapply(ann, function(x) strsplit(x, "\\||,"))
   names(annsplit)=paste("X",c(1:length(annsplit)))
-  csq3=do.call(rbind, annsplit)
-  colnames(csq3)=SNames[1:ncol(csq3)]
-
+  AllData=do.call(rbind, annsplit)
+  colnames(AllData)=SNames[1:ncol(AllData)]
   # 
   # yesgrep=sapply(annsplit, function(x) grep("^YES$", x)) ## need to make sure protein sequences are not grepped
   # tx=sapply(yesgrep, length)
@@ -72,8 +68,6 @@ vcf2MAF=function(vcffile,outputfile,sampleName, AAlist, protein=F, pfam, pirsf){
   ## Pfam annotation:
     
   ##ann <-sapply(SearchFeat, function(x) extract.info(inputFile, element=x, as.numeric=F))
-  
-  AllData=csq3
   
   ## Create HGVSp short:
   xa=strsplit(AllData[ ,match("HGVSp", colnames(AllData))], ":p\\.")
