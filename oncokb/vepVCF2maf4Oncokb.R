@@ -47,10 +47,11 @@ vcf2MAF=function(vcffile,outputfile,sampleName, AAlist, protein=F, pfam, pirsf){
   a1=inputFile@meta
   x1=a1[grep("CSQ", a1)]
   SNames=unlist(strsplit( substr(x1, regexpr(  "Format: *",x1)+8, nchar(x1)-2), "\\|"))
- 
+  print('Extract information on CSQ')
   ann <- extract.info(inputFile, element='CSQ', as.numeric=F)
   annsplit=sapply(ann, function(x) strsplit(x, "\\||,"))
   names(annsplit)=paste("X",c(1:length(annsplit)))
+  print('Create new data table')
   AllData=do.call(rbind, annsplit)
   colnames(AllData)=SNames[1:ncol(AllData)]
   # 
@@ -100,8 +101,8 @@ vcf2MAF=function(vcffile,outputfile,sampleName, AAlist, protein=F, pfam, pirsf){
   print('converting proteins')
   ## pfam entry
    pfamI=read.delim(pfam, header=F, sep="\t")
-   pirsfinfo=read.delim(pirsf, sep=" ", header=F)
-   pirsfinfo$V1=gsub(">", "", pirsfinfo$V1)
+   pirsfinfo=read.delim(pirsf, sep=")", header=F, quote="")
+   pirsfinfo$V3=substr(pirsfinfo$V1, 2, 12)
 
   n2=regmatches( AllData[ ,match("DOMAINS", colnames(AllData))], 
                  regexec("PF[0-9]{5}", AllData[ ,match("DOMAINS", colnames(AllData))]))
