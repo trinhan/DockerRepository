@@ -14,28 +14,38 @@ opts <- docopt(doc)
 ## run with the options:
 ## --domains --af_gnomad --check_existing --fields CANONICAL,Consequence,Codons,Amino_acids,Gene,SYMBOL,Feature,EXON,PolyPhen,SIFT,Protein_position,BIOTYPE,Feature_type,cDNA_position,CDS_position,Existing_variation,DISTANCE,STRAND,CLIN_SIG,LoF_flags,LoF_filter,LoF,RadialSVM_score,RadialSVM_pred,LR_score,LR_pred,CADD_raw,CADD_phred,Reliability_index,DOMAINS,HGVSc,HGVSp,gnomAD_AF,PHENO
 
-vcf2MAF=function(vcffile,outputfile,sampleName, canonical=F){
+vcf2MAF=function(vcffile,outputfile,sampleName, canonical=F, runMode="Germline"){
   library(vcfR)
   library(matrixStats)
   inputFile=read.vcfR(vcffile)
   vcfFix=getFIX(inputFile)
   # get depth
+  if (runMode=="Tumour"){
   dp1 <- extract.gt(inputFile, element='DP', as.numeric=TRUE)
-  # if QUAL =0
-    # get allelic depth: reference
+  # if QUAL =0 # get allelic depth: reference
   ad1 <- extract.gt(inputFile, element='AD', as.numeric=TRUE)
   af1=extract.gt(inputFile, element='AF', as.numeric=TRUE)
   adv <- dp1-ad1
   #vaf=adv/dp
-  
   dp2<- extract.gt(inputFile, element='TIR', as.numeric=TRUE)
   ad2<- extract.gt(inputFile, element='TAR', as.numeric=TRUE)
   vaf2=ad2/(ad2+dp2)
-  
   adv=ifelse(is.na(adv), ad2, adv)
   vaf=ifelse(is.na(af1), vaf2, af1)
   dp=ifelse(is.na(dp1), dp2, dp1)
-  
+  } else {
+    adv <- extract.gt(inputFile, element='AD', as.numeric=F)
+    t2=colnames(adv)
+    adA = strsplit(adv, ",")
+    fwdA=sapply(adA, function(x) x[1])
+    revA=sapply(adA, function(x) x[2])
+    adv=matrix(as.numeric(fwdA), ncol=ncol(adv))
+    colnames(adv)=t2
+    adv2=matrix(as.numeric(revA), ncol=ncol(adv))
+    colnames(adv2)=t2
+    dp=adv+adv2
+    vaf=adv/dp
+  }
   colnames(adv)=paste("nAlt", colnames(adv), sep="-")
   colnames(dp)=paste("nTot", colnames(dp), sep="-")
   colnames(vaf)=paste("VAF", colnames(vaf), sep="-")
@@ -43,28 +53,12 @@ vcf2MAF=function(vcffile,outputfile,sampleName, canonical=F){
   VAFd=cbind(adv, dp, vaf)
   
   ## get the colnames for the CSQ upload
+  print('Get CSQ colnames')
   a1=inputFile@meta
   x1=a1[grep("CSQ", a1)]
   SNames=unlist(strsplit( substr(x1, regexpr(  "Format: *",x1)+8, nchar(x1)-2), "\\|"))
-  print('Extract information on CSQ')
-  ann <- extract.info(inputFile, element='CSQ', as.numeric=F)
-  annsplit=sapply(ann, function(x) strsplit(x, "\\||,"))
-  print('Create new data table')
-  ncounts=sapply(annsplit, length)
-  
-  if (length(unique(ncounts))>1){ 
-    canonical = T
-    lxa=which(SNames=="CANONICAL")
-    lxb=length(SNames)-lxa
-    print(lxa)
-    print(lxb)
-  }else{
-    names(annsplit)=paste("X",c(1:length(annsplit)))
-    }
-  
-  LxB=length(annsplit)
+  LxB=nrow(vcfFix)
   print(LxB)
-  
   seqlast <- function (from, to, by) 
   {
     vec <- do.call(what = seq, args = list(from, to, by))
@@ -77,17 +71,25 @@ vcf2MAF=function(vcffile,outputfile,sampleName, canonical=F){
   Ntries <- seqlast(from=0, to=LxB, by = 50000)
   print(Ntries)
   
+  print('Create new data table')
+  
   for (i in 1:(length(Ntries)-1)){
-    if (canonical==T){
-    yesgrep=sapply(annsplit[(Ntries[i]+1):Ntries[i+1]], function(x) grep("^YES$", x)) ## need to make sure protein sequences are not grepped
+    ann <- extract.info(inputFile[(Ntries[i]+1):Ntries[i+1]], element='CSQ', as.numeric=F)
+    annsplit=sapply(ann, function(x) strsplit(x, "\\||,"))
+    ncounts=sapply(annsplit, length)
+  if (canonical==T | length(unique(ncounts))>1){
+    lxa=which(SNames=="CANONICAL")
+    lxb=length(SNames)-lxa
+    yesgrep=sapply(annsplit, function(x) grep("^YES$", x)) ## need to make sure protein sequences are not grepped
     tx=sapply(yesgrep, length)
     yesgrep2<-lapply(yesgrep, function(x) {ifelse(length(x)==0, x<-lxa, x); x})
     tx2=sapply(yesgrep2, length)
-    csq3=sapply(1:length(annsplit[(Ntries[i]+1):Ntries[i+1]]), function(x) annsplit[[x]][(yesgrep2[[x]][1]-lxa+1): (yesgrep2[[x]][1]+lxb)]) ## issue line 932
+    csq3=sapply(1:length(annsplit), function(x) annsplit[[x]][(yesgrep2[[x]][1]-lxa+1): (yesgrep2[[x]][1]+lxb)]) ## issue line 932
     AllData=t(csq3)
     colnames(AllData)=SNames
   } else {
-    AllData=do.call(rbind, annsplit[(Ntries[i]+1):Ntries[i+1]])
+    names(annsplit)=paste("X",c(1:length(annsplit)))
+    AllData=do.call(rbind, annsplit)
     colnames(AllData)=SNames[1:ncol(AllData)]    
   }
    print('Merge CSQ data')

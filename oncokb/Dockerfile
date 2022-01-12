@@ -17,5 +17,6 @@ RUN Rscript -e "install.packages('vcfR')"
 
 COPY vepVCF2maf4Oncokb.R /opt/
 COPY annotateProteins.R /opt/
+COPY HGVSMafAnnot.R /opt/
 
 COPY Dockerfile /opt/
