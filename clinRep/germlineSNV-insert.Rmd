@@ -1,0 +1,76 @@
+#### Variant Summary
+
+Summary of variants detected
+
+```{r, eval=T, message=F}
+D1=read.delim(data$SNVsummary)
+
+VariantSummary=c("Total protein-associated non-synonymous variants ", "Total in Cancer Gene Census ",
+             "Total associated with drug response ", "Total in pathways of interest ",
+             "Total other pathogenic VUS ")
+# write name to variable so we can evaluate intersections
+Table1=cbind(VariantSummary, t(D1))
+head(Table1)
+
+kable(Table1, rownames = F)
+```
+
+#### Group A: Cancer Related
+
+The following variants have been listed within the following sources:
+
+* MSK's Oncokb Precision Oncology Database
+* COSMIC's Cancer Gene Census (CGC): Tiers include Hallmark, Tier 1 & Tier 2 
+* COSMIC's Cancer Mutation Census (Tiers 1-3) 
+
+```{r, eval=T}
+D2=read.delim(data$SNVcancerRes)
+
+#BioVar=Xout$Func[ , (match(SearchTerms, colnames(Xout$Func)))]
+#colnames(BioVar)=cNames
+DT::datatable(D2[ ,c(1:6, 21, 20, 8,12,9, 13:19, 22)], rownames=F, class='cell-border stripe',
+          extensions="Buttons", options=list(dom="Bfrtip",scoller = TRUE,  buttons=c('csv', 'excel')))
+```
+
+
+#### Group B: Biologically relevant pathways
+
+The following variants have been implicated in pathways related to `r data$TreatmentKeywords`.
+Additionally, variants need to either have a documented ClinVar Significance, or have a CADD score greater than 20
+
+```{r, eval=T}
+D3=read.delim(data$SNVHallmark)
+
+DT::datatable(D3[ ,c(1:6, 21, 20, 8,12,9, 13:19, 22)], rownames=F, class='cell-border stripe',
+          extensions="Buttons", options=list(dom="Bfrtip",scoller = TRUE,  buttons=c('csv', 'excel')))
+```
+
+#### Group C: Variants with Clinvar protective or drug response annotations
+
+The following variants annotated with clinvar have reported the following:
+* a potential protective effect
+* can influence drug response
+
+```{r, eval=T}
+D4=read.delim(data$SNVdrugresponse)
+
+DT::datatable(D4[ ,c(1:6, 20, 21, 8, 12:13,19,22)], rownames=F, class='cell-border stripe',
+          extensions="Buttons", options=list(dom="Bfrtip",scoller = TRUE,  buttons=c('csv', 'excel')))
+```
+
+#### Group D: Variants of unknown significance
+
+The following variants:
+* have a predicted CADD for for deleteriousness of 20+ (Top 1\% of deleteriousness)
+* are present in the gnomAD database at an population frequency of 0.1 or less
+* affect an defined functional domain of a protein
+
+```{r, eval=T}
+D5=read.delim(data$SNVVUS)
+
+DT::datatable(D5[ ,c(1:6, 20, 21, 8, 12:13,19,22)], rownames=F, class='cell-border stripe',
+          extensions="Buttons", options=list(dom="Bfrtip",scoller = TRUE,  buttons=c('csv', 'excel')))
+```
+
+
+
