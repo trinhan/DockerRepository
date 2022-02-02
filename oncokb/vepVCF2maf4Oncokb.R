@@ -33,24 +33,27 @@ vcf2MAF=function(vcffile,outputfile,sampleName, canonical=F, runMode="Germline")
   adv=ifelse(is.na(adv), ad2, adv)
   vaf=ifelse(is.na(af1), vaf2, af1)
   dp=ifelse(is.na(dp1), dp2, dp1)
-  } else {
+  gt<-extract.gt(inputFile, element='GT')
+  } else if (runMode=="Germline") {
     adv <- extract.gt(inputFile, element='AD', as.numeric=F)
     t2=colnames(adv)
     adA = strsplit(adv, ",")
-    fwdA=sapply(adA, function(x) x[1])
-    revA=sapply(adA, function(x) x[2])
+    fwdA=sapply(adA, function(x) x[2])
+    revA=sapply(adA, function(x) x[1])
     adv=matrix(as.numeric(fwdA), ncol=ncol(adv))
     colnames(adv)=t2
     adv2=matrix(as.numeric(revA), ncol=ncol(adv))
     colnames(adv2)=t2
     dp=adv+adv2
     vaf=adv/dp
+    gt<-extract.gt(inputFile, element='GT')
   }
   colnames(adv)=paste("nAlt", colnames(adv), sep="-")
   colnames(dp)=paste("nTot", colnames(dp), sep="-")
   colnames(vaf)=paste("VAF", colnames(vaf), sep="-")
+  colnames(gt)=paste("GT", colnames(gt), sep="-")
   
-  VAFd=cbind(adv, dp, vaf)
+  VAFd=cbind(adv, dp, vaf, gt)
   
   ## get the colnames for the CSQ upload
   print('Get CSQ colnames')
@@ -68,6 +71,7 @@ vcf2MAF=function(vcffile,outputfile,sampleName, canonical=F, runMode="Germline")
       return(vec)
     }
   }
+  ## process 50000 entries at a time
   Ntries <- seqlast(from=0, to=LxB, by = 50000)
   print(Ntries)
   

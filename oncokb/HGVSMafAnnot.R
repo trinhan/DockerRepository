@@ -1,5 +1,5 @@
 #!/usr/bin/Rscript
-"usage: \n HGVSMafAnnot.R [--maffile=<file> --outputfile=<string> --AAlist=<file> --cosmicMut=<file>]
+"usage: \n HGVSMafAnnot.R [--maffile=<file> --outputfile=<string> --AAlist=<file>]
 \n options:\n --vcffile=<file> vcffile that has been annotated using vep.
 \n --outputfile=<string> output directory
 \n --sampleName=<string> If sample list has more than 1 sample, include a csv file with all identifiers, otherwise set as 'NULL' [default: NULL]
@@ -40,13 +40,13 @@ HGVSMafAnnot=function(maffile, outputfile, AAlist, cosmicMut){
   colnames(AllData)[which(colnames(AllData)=="SYMBOL")]="Hugo_Symbol"
   ax1=paste(AllData$Hugo_Symbol, AllData$HGVSp_Short)
   
-  print('annotate with Cosmic')
-  CosmicD=read.delim(cosmicMut, sep="\t")
-  bx1=paste(CosmicD$GENE_NAME,CosmicD$Mutation.AA)
-  m1=match(ax1, bx1)
-  CosmicD=CosmicD[m1,c("ONC_TSG","CGC_TIER","DISEASE", "CLINVAR_TRAIT","MUTATION_SIGNIFICANCE_TIER") ]
-  colnames(CosmicD)=paste("CMC", colnames(CosmicD), sep=".")
-  AllData=cbind(AllData, CosmicD)
+  # print('annotate with Cosmic')
+  # CosmicD=read.delim(cosmicMut, sep="\t")
+  # bx1=paste(CosmicD$GENE_NAME,CosmicD$Mutation.AA)
+  # m1=match(ax1, bx1)
+  # CosmicD=CosmicD[m1,c("ONC_TSG","CGC_TIER","DISEASE", "CLINVAR_TRAIT","MUTATION_SIGNIFICANCE_TIER") ]
+  # colnames(CosmicD)=paste("CMC", colnames(CosmicD), sep=".")
+  # AllData=cbind(AllData, CosmicD)
   print('write to file')
   write.table(AllData, file=outputfile, sep="\t", row.names=F, quote=F)
   
@@ -54,4 +54,4 @@ HGVSMafAnnot=function(maffile, outputfile, AAlist, cosmicMut){
   
 }
 
-HGVSMafAnnot(opts$maffile, opts$outputfile, opts$AAlist, opts$cosmicMut)
+HGVSMafAnnot(opts$maffile, opts$outputfile, opts$AAlist)
