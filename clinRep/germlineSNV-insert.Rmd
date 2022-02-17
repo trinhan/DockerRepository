@@ -5,17 +5,16 @@ Summary of variants detected
 ```{r, eval=T, message=F}
 D1=read.delim(data$SNVsummary)
 
-VariantSummary=c("Total protein-associated non-synonymous variants ", "Total in Cancer Gene Census ",
-             "Total associated with drug response ", "Total in pathways of interest ",
-             "Total other pathogenic VUS ")
+VariantSummary=c("Total coding non-synonymous variants", "Total in Cancer Gene Census",
+             "Total associated with drug response", "Total in pathways of interest",
+             "Total other pathogenic VUS")
 # write name to variable so we can evaluate intersections
 Table1=cbind(VariantSummary, t(D1))
-head(Table1)
 
-kable(Table1, rownames = F)
+kable(Table1, rownames = F, caption="Summary of the variants detected")
 ```
 
-#### Group A: Cancer Related
+#### TierA: Cancer Related
 
 The following variants have been listed within the following sources:
 
@@ -28,12 +27,11 @@ D2=read.delim(data$SNVcancerRes)
 
 #BioVar=Xout$Func[ , (match(SearchTerms, colnames(Xout$Func)))]
 #colnames(BioVar)=cNames
-DT::datatable(D2[ ,c(1:6, 21, 20, 8,12,9, 13:19, 22)], rownames=F, class='cell-border stripe',
-          extensions="Buttons", options=list(dom="Bfrtip",scoller = TRUE,  buttons=c('csv', 'excel')))
+DT::datatable(D2[ ,-c(12:13, 26)], rownames=F, filter = 'top', class='cell-border stripe',extensions="Buttons", options=list(dom="Bfrtip",scoller = TRUE, pageLength = 5,  buttons=c(I('colvis'),'csv', 'excel'), columnDefs = list(list(visible=FALSE, targets=c(1:3, 5:7,12,15:17, 22:24)))))
 ```
 
 
-#### Group B: Biologically relevant pathways
+#### Tier B: Biologically relevant pathways
 
 The following variants have been implicated in pathways related to `r data$TreatmentKeywords`.
 Additionally, variants need to either have a documented ClinVar Significance, or have a CADD score greater than 20
@@ -41,11 +39,11 @@ Additionally, variants need to either have a documented ClinVar Significance, or
 ```{r, eval=T}
 D3=read.delim(data$SNVHallmark)
 
-DT::datatable(D3[ ,c(1:6, 21, 20, 8,12,9, 13:19, 22)], rownames=F, class='cell-border stripe',
-          extensions="Buttons", options=list(dom="Bfrtip",scoller = TRUE,  buttons=c('csv', 'excel')))
+DT::datatable(D3[ ,-c(12:13, 26)], rownames=F, filter = 'top', class='cell-border stripe',extensions="Buttons", options=list(dom="Bfrtip",scoller = TRUE, pageLength = 10,  buttons=c(I('colvis'),'csv', 'excel'), columnDefs = list(list(visible=FALSE, targets=c(1:3, 5:7,12,15:17, 22:24)))))
+
 ```
 
-#### Group C: Variants with Clinvar protective or drug response annotations
+#### Tier C: Variants with Clinvar protective or drug response annotations
 
 The following variants annotated with clinvar have reported the following:
 * a potential protective effect
@@ -54,11 +52,10 @@ The following variants annotated with clinvar have reported the following:
 ```{r, eval=T}
 D4=read.delim(data$SNVdrugresponse)
 
-DT::datatable(D4[ ,c(1:6, 20, 21, 8, 12:13,19,22)], rownames=F, class='cell-border stripe',
-          extensions="Buttons", options=list(dom="Bfrtip",scoller = TRUE,  buttons=c('csv', 'excel')))
+DT::datatable(D4[ , c(1:10, 14:17, 22:25, 27:30)], rownames=F, filter = 'top', class='cell-border stripe',extensions="Buttons", options=list(dom="Bfrtip",scoller = TRUE, pageLength = 5,  buttons=c(I('colvis'),'csv', 'excel'), columnDefs = list(list(visible=FALSE, targets=c(1:3, 5:7,12,15, 17:21)))))
 ```
 
-#### Group D: Variants of unknown significance
+#### Tier D: Variants of unknown significance
 
 The following variants:
 * have a predicted CADD for for deleteriousness of 20+ (Top 1\% of deleteriousness)
@@ -68,9 +65,18 @@ The following variants:
 ```{r, eval=T}
 D5=read.delim(data$SNVVUS)
 
-DT::datatable(D5[ ,c(1:6, 20, 21, 8, 12:13,19,22)], rownames=F, class='cell-border stripe',
-          extensions="Buttons", options=list(dom="Bfrtip",scoller = TRUE,  buttons=c('csv', 'excel')))
+DT::datatable(D5[ ,c(1:10, 14:15, 22:25, 27:30)], rownames=F, filter = 'top', class='cell-border stripe',extensions="Buttons", options=list(dom="Bfrtip",scoller = TRUE, pageLength = 5,  buttons=c(I('colvis'),'csv', 'excel'), columnDefs = list(list(visible=FALSE, targets=c(1:3, 5:7, 12, 14:17)))))
 ```
 
+#### Tier E: ACMG variants
+
+The following variants:
+* have genes listed based on ACMG guidelines
+
+```{r, eval=T}
+D6=read.delim(data$SNVACMG)
+
+DT::datatable(D6[ ,c(1:10, 14:15, 22:25, 27:30)], rownames=F, filter = 'top', class='cell-border stripe',extensions="Buttons", options=list(dom="Bfrtip",scoller = TRUE, pageLength = 5,  buttons=c(I('colvis'),'csv', 'excel'), columnDefs = list(list(visible=FALSE, targets=c(1:3, 5:7, 12, 14:17)))))
+```
 
 

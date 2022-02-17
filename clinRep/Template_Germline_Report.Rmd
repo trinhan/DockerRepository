@@ -36,6 +36,7 @@ library(DT)
 library(knitr)
 library(circlize)
 library(plotly)
+library(RColorBrewer)
 
 #########
 ## 1. Requirements in the YAML file:
@@ -75,16 +76,14 @@ Coming soon
 
 ## Copy Number Variants
 
-```{r, eval=T}
-RunCV=ifelse(is.null(data$cnv), F, T)
+```{r}
+RunCV=ifelse(is.null(data$gCNVAnnotSV), F, T)
 ```
 
-`r ifelse(RunCV==F, print('CNV analysis not available this sample'), print("")) `
+`r ifelse(RunCV==F, print('CNV analysis not available this sample'), print(""))`
 
-
-```{r child = 'gatk-cnv-insert.Rmd', eval=RunCV}
+```{r child = 'gatk-cnv-germline-insert.Rmd'}
 ```
-
 
 ## Structural Variants
 
@@ -114,29 +113,34 @@ Filtering summary:
 
 Variants have been grouped into 4 main clusters:
 
-*Group A: Cancer Related* These genes have been documented to be oncogenic or tumour suppressors
-*Group B: Pathway Related* Variants in genes that affect pathways which are related to the mode of action of the treatment
-*Group C: Protective or drug related* These variants have been documented to have either a protective effect, or can influence the efficacy of drug treatments
-*Group D: Variants of Unknown Significance* These variants are predicted to be highly deleterious but do not appear in any of the previous categories
+*Tier A: Cancer Related* These genes have been documented to be oncogenic or tumour suppressors
+*Tier B: Pathway Related* Variants in genes that affect pathways which are related to the mode of action of the treatment
+*Tier C: Protective or drug related* These variants have been documented to have either a protective effect, or can influence the efficacy of drug treatments
+*Tier D: Variants of Unknown Significance* These variants are predicted to be highly deleterious but do not appear in any of the previous categories
 
 #### CNVs
 
-A panel of normals limited to Tempus probed regions was used in this analysis
+Germline CNV calling using GATK CNV in cohort mode. Assumes diploid genome
 
 Definitions: (assuming normal is diploid)
 
-  * Hom Loss: log2FC less than (-2) 
-  * Het Loss: log2FC less than (-1) (i.e. CN:1 in Tumor)
-  * Gain: log2FC >0.58 (i,e. CN:3 in Tumor)
-  * Amp: log2FC > 1 (i.e. CN: 4 +)
+  * Hom Loss: Inferred CN 0
+  * Het Loss: Inferred CN 1
+  * Gain: Inferred CN 3+
   
-Only Cancer related genes (from COSMIC) are listed
+Break points annotated using AnnotSV. 
+
+Additional Annotations:
+* ACMG: score of 4 or 5 indicates likely pathogenicity or pathogenicity from AnnotSV algorithm
+* Population frequencies of variants beginning at the same start point from DDD or gnomadSV
+* HallmarkPathways annotated using MSigDB
+* Cosmic: Genes of interest have been indicated as having an oncogenic or TSG function by Cosmic
+* Genes of Interest: Additional GOIs from a list of interest
 
 #### Structural Variants
 
 Break points with at least 5 split reads or 10 paired reads supporting the break point are retained.
 Shown are variants scored level 4 or 5 (most deleterious) ACMG class
-
 
 ## Methods
 

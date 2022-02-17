@@ -9,7 +9,7 @@
 library("docopt")
 opts <- docopt(doc)
 
-HGVSMafAnnot=function(maffile, outputfile, AAlist, cosmicMut){
+HGVSMafAnnot=function(maffile, outputfile, AAlist){
   AllData=read.delim(maffile, sep="\t", stringsAsFactors = F)
   AAlist=read.csv(AAlist)
   ## Create HGVSp short:
@@ -49,8 +49,6 @@ HGVSMafAnnot=function(maffile, outputfile, AAlist, cosmicMut){
   # AllData=cbind(AllData, CosmicD)
   print('write to file')
   write.table(AllData, file=outputfile, sep="\t", row.names=F, quote=F)
-  
-  
   
 }
 
