@@ -1,5 +1,5 @@
 #!/usr/bin/Rscript
-"usage: \n SummarizeAnnotSV.R [--AnnotSVtsv=<file> --outputname=<string> --germline=<boolean> --MSigDB=<file> --GTex=<file> --CosmicList=<file> --AddList=<file> --pathwayList=<string> --ACMGCutoff=<integer> --Tissue=<string> --CNV=<boolean> ]
+"usage: \n SummarizeAnnotSV.R [--AnnotSVtsv=<file> --outputname=<string> --germline=<boolean> --MSigDB=<file> --GTex=<file> --CosmicList=<file> --AddList=<file> --pathwayList=<string> --ACMGCutoff=<integer> --Tissue=<string> --CNV=<boolean> --PASSfilt=<boolean>]
 \n options:\n --AnnotSVtsv=<file> tsv from AnnotSV.
 \n --outputname=<string> output string
 \n --germline=<boolean> [default: TRUE] is this in germline mode
@@ -10,7 +10,8 @@
 \n --pathwayList=<string>
 \n --ACMGCutoff=<integer> Cut off value to assess these variants. Anything below this will not be further annotated [default:4]
 \n --Tissue=<string> Tissue type 
-\n --CNV=<boolean> Whether the input is a CNV or SV" -> doc
+\n --CNV=<boolean> Whether the input is a CNV or SV
+\n --PASSfilt=<boolean> filter variants with PASS tag [default=TRUE] " -> doc
 
 ## Include the pathway List!
 
@@ -25,22 +26,47 @@ opts <- docopt(doc)
   library(matrixStats, quietly = T)
   InputData=read.delim(opts$AnnotSVtsv)
   
+  if (opts$PASSfilt){
+    InputData=InputData[which(InputData$FILTER=="PASS"| InputData$FILTER=="."), ]
+  }
+  
   print('Remove blacklisted regions from ENCODE')
   rmx=which(InputData$ENCODE_blacklist_characteristics_left=="" & InputData$ENCODE_blacklist_characteristics_right=="")
   InputData=InputData[rmx, ]
   print('Tidy pheno-geno data')
-  Psource=ifelse(InputData$SV_type=="DEL", InputData$P_loss_source,InputData$P_gain_source )
-  Bsource=ifelse(InputData$SV_type=="DEL", InputData$B_loss_source,InputData$B_gain_source )
-  BAF=ifelse(InputData$SV_type=="DEL", InputData$B_loss_AFmax,InputData$B_gain_AFmax)
+  Psource=ifelse(InputData$SV_type=="DEL", InputData$P_loss_source,ifelse(InputData$SV_type=="DUP", InputData$P_gain_source, InputData$P_ins_source))
+  Bsource=ifelse(InputData$SV_type=="DEL", InputData$B_loss_source,
+                 ifelse(InputData$SV_type=="DUP", InputData$B_gain_source,ifelse(InputData$SV_type=="INV", InputData$B_inv_source, InputData$B_ins_source)))
+  BAF=ifelse(InputData$SV_type=="DEL",  InputData$B_loss_AFmax,
+             ifelse(InputData$SV_type=="DUP", InputData$B_gain_AFmax, 
+                    ifelse(InputData$SV_type=="INV", InputData$B_inv_AFmax, InputData$B_ins_AFmax)))
+  
   ## Extract the genotype and copy number
   sampleName=opts$outputName ##data$sampleIn 
   temp=strsplit(as.character(InputData[ ,15 ]), ":")
   GT=sapply(temp, function(x) x[1])
-  CN=sapply(temp, function(x) x[2])
-  Pheno=ifelse(InputData$SV_type=="DEL", InputData$P_loss_phen, ifelse(is.na(InputData$P_gain_phen),
-                                                                     InputData$P_snvindel_phen, InputData$P_gain_phen))
+
+  Pheno=ifelse(InputData$SV_type=="DEL", InputData$P_loss_phen, ifelse(InputData$SV_type=="DUP", InputData$P_gain_phen, 
+                                                                       ifelse(InputData$SV_type=="INS", InputData$P_ins_phen, InputData$P_snvindel_phen)))
+
+  if (opts$CNV){
+    CN=sapply(temp, function(x) x[2])
+    InputData$CN=CN
+  } else {
+    PR=sapply(temp, function(x) x[5])
+    PR2=strsplit(PR, ",")
+    SR=sapply(temp, function(x) x[6])
+    SR2=strsplit(SR, ",")
+    PRVAF=round(sapply(PR2, function(x) as.numeric(x[2])/(sum(as.numeric(x)))), 2)
+    SRVAF=round(sapply(SR2, function(x) as.numeric(x[2])/(sum(as.numeric(x)))), 2)
+    MeanVAF=round(sapply(1:length(PR2), function(x) sum(c(as.numeric(PR2[[x]][2]),as.numeric(SR2[[x]][2])), na.rm=T)/
+                           sum(c(as.numeric(PR2[[x]]), as.numeric(SR2[[x]])), na.rm=T)), 2)
+    InputData$PRVAF=PRVAF
+    InputData$SRVAF=SRVAF
+    InputData$MeanVAF=MeanVAF
+    InputData$Depth=sapply(1:length(PRVAF), function(x) sum(c(as.numeric(PR2[[x]]), as.numeric(SR2[[x]])), na.rm = T))
+  }
   
-  InputData$CN=CN
   InputData$GT=GT
   InputData$Pheno=Pheno
   InputData$AF=BAF
@@ -75,13 +101,17 @@ opts <- docopt(doc)
   GTex=read.delim(opts$GTex, skip=2)
   l1=match(GS, GTex$Description)
   GTex=GTex[na.omit(l1),  ]
+  rownames(GTex)=GS[which(!is.na(l1))]
   gtissue=grep(opts$Tissue, colnames(GTex), ignore.case = T)
   GZScore=(GTex[ ,gtissue]-rowMeans(GTex[ ,-c(1:2)]))/rowSds(data.matrix(GTex[ ,-c(1:2)]))
-  GZscore2=rowMaxs(data.matrix(GZScore), na.rm=T)
-  rownames(GZScore)=GS[which(!is.na(l1))]
+  if (length(gtissue)>1){
+    GZscore2=rowMaxs(data.matrix(GZScore), na.rm=T)
+    names(GZscore2)=rownames(GZScore)
+    GZScore=GZscore2
+  }
   idx1=which(GZScore>0, arr.ind = T)
-  GTexNames=unique(rownames(idx1))
-  GTex2=GZscore2[match(GTexNames, rownames(GZScore))]
+  GTexNames=unique(names(idx1))
+  GTex2=GZScore[match(GTexNames, names(GZScore))]
   GTex3=paste(GTexNames, "(", round(GTex2, 1), ")", sep="")
   
   MatchCase=sapply(Genes, function(x) paste(na.omit(GTex3[match(x, GTexNames)]), collapse=" "))
@@ -100,7 +130,8 @@ opts <- docopt(doc)
   
   sprintf('Find genes involved in %s pathway', opts$pathwayList)
   ## Pathways of Interest
-  PWtable=read.csv("~/Documents/ER_pilot/annotations/PathwayList.csv")
+  #PWtable=read.csv("~/Documents/ER_pilot/annotations//PathwayList.csv")
+  PWtable=read.csv("/opt/PathwayList.csv")
   nx=which(colnames(PWtable)==opts$pathwayList)
   nx=setdiff(as.vector(PWtable[ ,nx]), "")
   ex1=unique(unlist(sapply(nx, function(x) grep(x, InputData$Pathways))))
@@ -114,7 +145,7 @@ opts <- docopt(doc)
   
   print('Finished! Write out formated output table')
   if (opts$CNV){
-  write.table(InputData, file=paste(opts$outputname, ".CNV.formated.tsv", sep=""), sep="\t", row.names = F, quote = F)
+    write.table(InputData, file=paste(opts$outputname, ".CNV.formated.tsv", sep=""), sep="\t", row.names = F, quote = F)
   } else {
     write.table(InputData, file=paste(opts$outputname, ".SV.formated.tsv", sep=""), sep="\t", row.names = F, quote = F)
     

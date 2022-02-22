@@ -126,7 +126,7 @@ opts <- docopt(doc)
 
   sprintf('Find genes involved in %s pathway', opts$pathwayList)
   ## Pathways of Interest
-  PWtable=read.csv("~/Documents/ER_pilot/annotations/PathwayList.csv")
+  PWtable=read.csv("/opt/PathwayList.csv")
   nx=which(colnames(PWtable)==opts$pathwayList)
   nx=setdiff(as.vector(PWtable[ ,nx]), "")
   ex1=unique(unlist(sapply(nx, function(x) grep(x, Test1$HallmarkPathways))))

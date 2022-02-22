@@ -37,6 +37,7 @@ library(knitr)
 library(circlize)
 library(plotly)
 library(RColorBrewer)
+library(biomaRt)
 
 #########
 ## 1. Requirements in the YAML file:
@@ -49,7 +50,7 @@ library(RColorBrewer)
 ##  Outputdir: where to save temporary output files
 ##  ClinRep: clinical information to include
 
-knitr::opts_chunk$set(echo = FALSE, warning = F, fig.width=12, fig.height=8)
+knitr::opts_chunk$set(echo = FALSE, warning = F, fig.width=12, fig.height=8, warning = F)
 data=read_yaml("final.yml")
 ```
 
@@ -80,7 +81,7 @@ Coming soon
 RunCV=ifelse(is.null(data$gCNVAnnotSV), F, T)
 ```
 
-`r ifelse(RunCV==F, print('CNV analysis not available this sample'), print(""))`
+`r ifelse(RunCV==F, print('CNV analysis not available for this sample'), print(""))`
 
 ```{r child = 'gatk-cnv-germline-insert.Rmd'}
 ```
@@ -88,16 +89,18 @@ RunCV=ifelse(is.null(data$gCNVAnnotSV), F, T)
 ## Structural Variants
 
 ```{r}
-RunSV=ifelse(is.null(data$Manta), F, T)
+RunSV=ifelse(is.null(data$gSVAnnotSV), F, T)
 ```
 
-`r ifelse(RunSV==F, print('SV analysis not available this sample'), print("")) `
+`r ifelse(RunSV==F, print('SV analysis not available for this sample'), print("")) `
 
-```{r child = 'sv-table.Rmd', eval=RunSV}
+```{r child = 'GermlineSV-insert.Rmd', eval=RunSV}
 ```
 
 
 ## Interpretation Guide
+
+NB: Some tables have hidden columns to aid in readability, these can be toggled. Tables can further be filtered using tabs beneath the column name
 
 #### Reference Genome
 
@@ -111,12 +114,13 @@ Filtering summary:
 * Variants in coding or promoter regions and are predicted to affect gene expression (eg. oncokb defined as oncogenic, ClinVar pathogenic risk factor and protective)
 * Variants appearing in intergenic regions, pseudogenes or non-coding variants are excluded from this analysis
 
-Variants have been grouped into 4 main clusters:
+Variants have been grouped into 5 main clusters:
 
-*Tier A: Cancer Related* These genes have been documented to be oncogenic or tumour suppressors
-*Tier B: Pathway Related* Variants in genes that affect pathways which are related to the mode of action of the treatment
-*Tier C: Protective or drug related* These variants have been documented to have either a protective effect, or can influence the efficacy of drug treatments
-*Tier D: Variants of Unknown Significance* These variants are predicted to be highly deleterious but do not appear in any of the previous categories
+* *Tier A: Cancer Related* These genes have been documented to be oncogenic or tumour suppressors
+* *Tier B: Pathway Related* Variants in genes that affect pathways which are related to the mode of action of the treatment
+* *Tier C: Protective or drug related* These variants have been documented to have either a protective effect, or can influence the efficacy of drug treatments
+* *Tier D: Variants of Unknown Significance* These variants are predicted to be highly deleterious but do not appear in any of the previous categories
+* *Tier E: Variants of Unknown Significance* These variants lie in genes listed by ACMG 
 
 #### CNVs
 
@@ -131,16 +135,29 @@ Definitions: (assuming normal is diploid)
 Break points annotated using AnnotSV. 
 
 Additional Annotations:
+
 * ACMG: score of 4 or 5 indicates likely pathogenicity or pathogenicity from AnnotSV algorithm
 * Population frequencies of variants beginning at the same start point from DDD or gnomadSV
 * HallmarkPathways annotated using MSigDB
 * Cosmic: Genes of interest have been indicated as having an oncogenic or TSG function by Cosmic
-* Genes of Interest: Additional GOIs from a list of interest
+* Genes of Interest: Additional GOIs from a user-defined list
+* GTex: a z-score of the expression of the defined gene in the tissue of interest (e.g. skin for melanoma) compared to all other tissues. Higher value indicates higher expression in tissue of interest.
 
 #### Structural Variants
 
-Break points with at least 5 split reads or 10 paired reads supporting the break point are retained.
-Shown are variants scored level 4 or 5 (most deleterious) ACMG class
+Structural Variants are identified using Manta
+
+Shown are variants scored level 3, 4 or 5 (most deleterious) ACMG class
+Variant Allele Frequency must be greater than 25%
+
+Additional Annotations:
+
+* ACMG: score of 4 or 5 indicates likely pathogenicity or pathogenicity from AnnotSV algorithm
+* Population frequencies of variants beginning at the same start point from DDD or gnomadSV
+* HallmarkPathways annotated using MSigDB
+* Cosmic: Genes of interest have been indicated as having an oncogenic or TSG function by Cosmic
+* Genes of Interest: Additional GOIs from a user-defined list
+* GTex: a z-score of the expression of the defined gene in the tissue of interest (e.g. skin for melanoma) compared to all other tissues. Higher value indicates higher expression in tissue of interest.
 
 ## Methods
 

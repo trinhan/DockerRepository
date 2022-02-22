@@ -46,6 +46,7 @@ DT::datatable(D3[ ,-c(12:13, 26)], rownames=F, filter = 'top', class='cell-borde
 #### Tier C: Variants with Clinvar protective or drug response annotations
 
 The following variants annotated with clinvar have reported the following:
+
 * a potential protective effect
 * can influence drug response
 
@@ -58,6 +59,7 @@ DT::datatable(D4[ , c(1:10, 14:17, 22:25, 27:30)], rownames=F, filter = 'top', c
 #### Tier D: Variants of unknown significance
 
 The following variants:
+
 * have a predicted CADD for for deleteriousness of 20+ (Top 1\% of deleteriousness)
 * are present in the gnomAD database at an population frequency of 0.1 or less
 * affect an defined functional domain of a protein
@@ -71,7 +73,8 @@ DT::datatable(D5[ ,c(1:10, 14:15, 22:25, 27:30)], rownames=F, filter = 'top', cl
 #### Tier E: ACMG variants
 
 The following variants:
-* have genes listed based on ACMG guidelines
+
+* have a variant in a ACMG listed gene 
 
 ```{r, eval=T}
 D6=read.delim(data$SNVACMG)
