@@ -117,7 +117,8 @@ temp1=unique(temp1)
 temp1$Col=ifelse((temp1$Cosmic!=""&temp1$GenesOfInterest!=""),"purple", ifelse(temp1$Cosmic!="", "red", "blue") )
 
 temp1$Gene=ifelse(temp1$GenesOfInterest=="", temp1$Cosmic, temp1$GenesOfInterest)
-temp1$Gene=gsub(paste0(" ",data$TreatmentKeywords), "", temp1$Gene)
+temp1$Gene=gsub(paste0(data$TreatmentKeywords), "", temp1$Gene)
+temp1$Gene=gsub(" ", "", temp1$Gene)
 temp1$Gene[which(temp1$Gene=="")]=NA
 
 temp2=unique(temp1[ ,-c(4:5)])

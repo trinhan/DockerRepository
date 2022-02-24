@@ -75,6 +75,7 @@ DT::datatable(D5[ ,c(1:10, 14:15, 22:25, 27:30)], rownames=F, filter = 'top', cl
 The following variants:
 
 * have a variant in a ACMG listed gene 
+* variant is predicted to be pathogenic or likely pathogenic by ACMG
 
 ```{r, eval=T}
 D6=read.delim(data$SNVACMG)
