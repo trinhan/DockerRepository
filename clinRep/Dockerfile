@@ -17,6 +17,6 @@ RUN R -e 'BiocManager::install("biomaRt")'
 RUN mkdir template
 COPY *.R /opt/
 COPY *.Rmd /template/
-COPY PathwayList.csv /opt/
+COPY annotFiles/* /annotFiles/
 
 COPY Dockerfile /opt/

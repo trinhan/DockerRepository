@@ -1,5 +1,5 @@
 ---
-title: "Germline Genomics Report: Research Use Only"
+title: "Genomics Report: Research Use Only"
 date: "`r Sys.Date()`"
 output: 
  html_document: 
@@ -57,7 +57,7 @@ data=read_yaml("final.yml")
 ### Sample Information
  
 ```{r, warning=FALSE}
-clinSum=unlist(data[1:6])
+clinSum=unlist(data[1:9])
 kable((clinSum), col.names = c("Patient Information"))
 ```
 
@@ -83,7 +83,7 @@ RunCV=ifelse(is.null(data$gCNVAnnotSV), F, T)
 
 `r ifelse(RunCV==F, print('CNV analysis not available for this sample'), print(""))`
 
-```{r child = 'gatk-cnv-germline-insert.Rmd'}
+```{r child = 'gatk-cnv-germline-insert.Rmd', eval=RunCV}
 ```
 
 ## Structural Variants

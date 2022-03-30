@@ -1,0 +1,17 @@
+Sample: Test-Sample
+Age: XX
+Tumour: 
+Treatment: 
+Response status: 
+Metastasis: 
+TreatmentKeywords: DNADamage
+Tissue: 
+AnalysisMode: Tumour
+SNVsummary: ${snvsummary}
+SNVHallmark: ${snvhallmark}
+SNVVUS: ${snvvus}
+SNVdrugresponse: ${snvdrug}
+SNVcancerRes: ${snvcancer}
+SNVACMG: ${snvacmg}
+gCNVAnnotSV: ${cnvAnnot}
+gSVAnnotSV: ${svAnnot}

@@ -9,7 +9,8 @@
 \n --Ncallerthresh=<int> [default: 0] minimum number of callers required to output the variant
 \n --pathwayList=<string> a List to return variants of a specific pathway (believed to be related to response)
 \n --ACMG=<file> Table of ACMG variants
-\n --AddList=<file> Additional user defined genes [default=NULL]" -> doc
+\n --AddList=<file> Additional user defined genes [default=NULL]
+\n --columnEntries=<file> Import a table of columns to export and renamed output [default=NULL] " -> doc
 
 library("docopt", quietly = T)
 opts <- docopt(doc)
@@ -22,16 +23,57 @@ opts <- docopt(doc)
   gnames=colnames(mydnames)[grep("nTot", colnames(mydnames))]
   gnames2=colnames(mydnames)[grep("GT", colnames(mydnames))]
   gnames3=colnames(mydnames)[grep("VAF", colnames(mydnames))]
-  InputData=fread(opts$maffile, sep="\t", select=c("Hugo_Symbol","Existing_variation", "CHROM","POS", "HGVSp_Short","HGVSc","EXON","Consequence","gnomADg_AF",
-               "mgrb_MGRB_AF","ONCOGENIC","pfam","pirsf", "CADD_PHRED","PolyPhen", "ClinVar_CLNSIG","ClinVar_CLNDN", "ClinVar","CMC.CGC_TIER", 
-               "CMC.MUTATION_SIGNIFICANCE_TIER", "CMC.ONC_TSG", "CMC.DISEASE", "HallmarkPathways", gnames, gnames2, gnames3))
+  gnames4=colnames(mydnames)[grep("nAlt", colnames(mydnames))]
   
+  if (!is.null(opts$columnEntries)){
+    print('column entries not null')
+    ColNames=read.csv(opts$columnEntries, header=F)
+  }else{
+    print('column entries null')
+    ColNames=read.csv("/annotFiles/ColumnIDs.csv", header=F)
+  }
+  
+  ## check which colnames mataches the original file
+  midx=(match(ColNames$V1, colnames(mydnames)))
+  mNames=colnames(mydnames)[na.omit(midx)]
+  
+  InputData=fread(opts$maffile, sep="\t", select=c(mNames, gnames, gnames2, gnames3, gnames4))
+  print(colnames(InputData))
+  
+  print(ColNames$V2[which(!is.na(midx))])
   
   rm1=c(grep("HLA", InputData$Hugo_Symbol))
-  Test1=InputData[setdiff(1:nrow(InputData), rm1), 1:23 ]
-  colnames(Test1)=c("SYMBOL", "rsID", "CHROM","POS", "HGVSp","HGVSc","EXON","Consequence","gnomAD.AF","MGRB.AF",
-                    "Oncokb.ONCOGENIC","pfam","pirsf", "CADD", "PolyPhen", "ClinVar.Sig","ClinVar.Disease", "ClinVar","CancerGeneCensus.Tier",
-                    "CancerMutationCensus.Tier", "CMC.Oncogene", "Cancer.Disease.Freq", "HallmarkPathways")
+  Test1=InputData[setdiff(1:nrow(InputData), rm1), 1:length(mNames) ]
+  newNames=ColNames$V2[which(!is.na(midx))]
+  colnames(Test1)=ColNames$V2[which(!is.na(midx))]
+  
+  ## rename columns if they don't exist
+  if ( !"ClinVar.Disease"%in%newNames & "ClinVar_Trait"%in%newNames){
+    print('rename column')
+    colnames(Test1)[which(newNames=="ClinVar_Trait")]="ClinVar.Disease"
+  }
+  
+  if (!"ClinVar.Sig"%in%newNames & "ClinSig"%in%newNames){
+     print('rename column')
+     colnames(Test1)[which(newNames=="ClinSig")]="ClinVar.Sig"
+  }
+  
+  if (!"gnomAD.AF"%in%newNames & "gnomad_MAX_AF"%in%newNames){
+    print('rename column')
+    colnames(Test1)[which(newNames=="gnomad_MAX_AF")]="gnomAD.AF"
+  }
+  
+  if (!"CADD"%in%newNames){
+    print('reset CADD cut-off')
+    opts$caddscore=0
+  }
+  
+  if (!"MGRB.AF"%in%newNames & "gnomAD.AF"%in%colnames(Test1)){
+    print('gnomad only')
+    Test1$AF_max=Test1$gnomAD.AF
+  } else if ("MGRB.AF"%in%newNames & "gnomAD.AF"%in%colnames(Test1)){
+    Test1$AF_max=ifelse(Test1$gnomAD.AF>Test1$MGRB.AF, Test1$gnomAD.AF, Test1$MGRB.AF)
+  }
   
   print('Parse ClinVar and Protein annotations')
   
@@ -86,17 +128,19 @@ opts <- docopt(doc)
   ## Test whether in additional annot List
   Test1$UserGeneList=NA
   if (!is.null(opts$AddList)){
-    ImmTable=read.csv(opts$AddList)
-    int2=which(Test1$SYMBOL%in%ImmTable$V1)
+    ImmTable=read.csv(opts$AddList, header=F)
+    ImmTable=ImmTable[ ,1]
+    int2=which(Test1$SYMBOL%in%ImmTable)
     Test1$UserGeneList[int2]=1
   }
   
-
   print('Finding ACMG variants')
   ## ACMG variants
   ACMGtable=read.csv(opts$ACMG)
   Lx1=which(Test1$SYMBOL%in%ACMGtable$Gene)
-  Lx2=grep("Pathogenic|Likely_pathogenic", Test1$ClinVar.Sig)
+  strSplitA=strsplit(Test1$ClinVar.Sig, "&")
+  Nx2=sapply(strSplitA, function(x) length(which(c("pathogenic", "Pathogenic", "Likely_pathogenic", "likely_pathogenic")%in%x)))
+  Lx2=which(Nx2>0)
   Lx3=intersect(Lx1, Lx2)
   
   Keep0=Test1[Lx3, ]
@@ -110,41 +154,61 @@ opts <- docopt(doc)
   print('Finding cancer variants')
   ## Known Variants associated with cancer?
   bx1=which(Test1$CancerGeneCensus.Tier%in%c("1", "2", "Hallmark") & Test1$CancerMutationCensus.Tier%in%c(1:3))
+  print(length(bx1))
   cx1=grep("Oncogenic", Test1$Oncokb.ONCOGENIC)
+  print(length(cx1))
   mx1=unique(sort(c(bx1, cx1)))
   Keep1=Test1[mx1, ]
   
   print('Finding drug assoc variants')
   ## Known Variants associated with drug response or 
   nx1=grep("drug_response|protective", Test1$ClinVar.Sig)
+  print(length(nx1))
   Keep2=Test1[nx1, ]
   
   sprintf('Finding other VUS. Filter by gnomad AF %s and CADD score of %s', opts$gnomadcutoff, opts$caddscore )
   
-  ax1=which(Test1$CADD>opts$caddscore & (Test1$gnomAD.AF<opts$gnomadcutoff | Test1$MGRB.AF<opts$gnomadcutoff | is.na(Test1$gnomAD.AF)) & Test1$ProteinDomain!=" ")
+  ConsequenceVals=c("missense", "nonsense", "frameshift", "splice", "UTR", "inframe")
+  if (opts$caddscore>0){
+  ax1=which(Test1$CADD>opts$caddscore & (Test1$AF_max| is.na(Test1$AF_max)) & Test1$ProteinDomain!=" ")
+  } else {
+  Nxgrep=sapply(ConsequenceVals, function(x) grep(x, Test1$Consequence))
+  Test1$ConsB=NA
+  Test1$ConsB[unlist(Nxgrep)]=1
+  ax1=which((Test1$AF_max<opts$gnomadcutoff  | is.na(Test1$AF_max)) & Test1$ProteinDomain!=" " & 
+              Test1$ConsB==1)
+  }
+  print(length(ax1))
   Keep3=Test1[setdiff(ax1, c(nx1, mx1)), ]
 
   sprintf('Find genes involved in %s pathway', opts$pathwayList)
-  ## Pathways of Interest
-  PWtable=read.csv("/opt/PathwayList.csv")
+  ## Pathways of Interest /opt/PathwayList.csv
+  PWtable=read.csv("/annotFiles/PathwayList.csv")
   nx=which(colnames(PWtable)==opts$pathwayList)
   nx=setdiff(as.vector(PWtable[ ,nx]), "")
+  print(nx)
   ex1=unique(unlist(sapply(nx, function(x) grep(x, Test1$HallmarkPathways))))
   
+  print(length(ex1))
   if (!is.null(opts$AddList)){
     ex2=which(Test1$UserGeneList==1)
     ex1=unique(c(ex1, ex2))
+    print(length(ex2))
     }
   
   Keep4=Test1[ex1, ]
 
   # Refine this to include CADD high score if it does not affect a coding region
   lx1=which(is.na(Keep4$HGVSp))
-  rmT=which(Keep4$ClinVar.Sig!="Benign" | Keep4$CADD>opts$caddscore)
+  if (opts$caddscore>0){
+    rmT=which(Keep4$ClinVar.Sig!="Benign" | Keep4$CADD>opts$caddscore)
+  } else{
+    rmT=which(Keep4$ClinVar.Sig!="Benign" & Keep4$ConsB==1)
+  }
   Keep4=Keep4[setdiff(rmT, lx1), ]
   
   ## Summary Stats
-  DFValues=data.frame(Nvar=nrow(Test1), Cancer=length(mx1), DrugResp=length(nx1), Hallmark=nrow(Keep4),OtherVUS=nrow(Keep3))
+  DFValues=data.frame(Nvar=nrow(Test1), Cancer=length(mx1), DrugResp=length(nx1), Hallmark=nrow(Keep4),OtherVUS=nrow(Keep3), ACMG=nrow(Keep0))
   
   print('Finished! Writing out files')
   write.table(Keep0, file=paste(opts$outputname, "ACMG.filt.maf", sep=""), sep="\t", row.names = F, quote = F)

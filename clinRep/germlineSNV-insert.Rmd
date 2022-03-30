@@ -27,7 +27,10 @@ D2=read.delim(data$SNVcancerRes)
 
 #BioVar=Xout$Func[ , (match(SearchTerms, colnames(Xout$Func)))]
 #colnames(BioVar)=cNames
-DT::datatable(D2[ ,-c(12:13, 26)], rownames=F, filter = 'top', class='cell-border stripe',extensions="Buttons", options=list(dom="Bfrtip",scoller = TRUE, pageLength = 5,  buttons=c(I('colvis'),'csv', 'excel'), columnDefs = list(list(visible=FALSE, targets=c(1:3, 5:7,12,15:17, 22:24)))))
+selectNames=c("SYMBOL","rsID", "HGVSp",	"EXON",	"Consequence","ProteinDomain",
+              "Cancer.Disease.Freq","ClinVar.Disease", "HallmarkPathways","UserGeneList","CMC.Oncogene", "VAF",	 "ClinVar.Sig","CADD", "PolyPhen", "Genotype", "Depth", "CHROM",	"POS","HGVSc", "gnomAD.AF", "MGRB.AF" )
+midx=match(selectNames, colnames(D2))
+DT::datatable(D2[ , na.omit(midx)], rownames=F, filter = 'top', class='cell-border stripe',extensions="Buttons", options=list(dom="Bfrtip",scoller = TRUE, pageLength = 5,  buttons=c(I('colvis'),'csv', 'excel'), columnDefs = list(list(visible=FALSE, targets=c(13: length(na.omit(midx)))))))
 ```
 
 
@@ -39,7 +42,8 @@ Additionally, variants need to either have a documented ClinVar Significance, or
 ```{r, eval=T}
 D3=read.delim(data$SNVHallmark)
 
-DT::datatable(D3[ ,-c(12:13, 26)], rownames=F, filter = 'top', class='cell-border stripe',extensions="Buttons", options=list(dom="Bfrtip",scoller = TRUE, pageLength = 10,  buttons=c(I('colvis'),'csv', 'excel'), columnDefs = list(list(visible=FALSE, targets=c(1:3, 5:7,12,15:17, 22:24)))))
+midx=match(selectNames, colnames(D3))
+DT::datatable(D3[ ,na.omit(midx)], rownames=F, filter = 'top', class='cell-border stripe',extensions="Buttons", options=list(dom="Bfrtip",scoller = TRUE, pageLength = 10,  buttons=c(I('colvis'),'csv', 'excel'), columnDefs = list(list(visible=FALSE, targets=c(11: length(na.omit(midx)))))))
 
 ```
 
@@ -53,7 +57,12 @@ The following variants annotated with clinvar have reported the following:
 ```{r, eval=T}
 D4=read.delim(data$SNVdrugresponse)
 
-DT::datatable(D4[ , c(1:10, 14:17, 22:25, 27:30)], rownames=F, filter = 'top', class='cell-border stripe',extensions="Buttons", options=list(dom="Bfrtip",scoller = TRUE, pageLength = 5,  buttons=c(I('colvis'),'csv', 'excel'), columnDefs = list(list(visible=FALSE, targets=c(1:3, 5:7,12,15, 17:21)))))
+selectNames=c("SYMBOL","rsID", "HGVSp",	"EXON",	"Consequence","ProteinDomain","CADD", "PolyPhen", "gnomAD.AF", "MGRB.AF",
+              "Cancer.Disease.Freq","ClinVar.Disease", "HallmarkPathways","UserGeneList", "VAF",  "ClinVar.Sig","Genotype", "Depth", "CHROM",	"POS","HGVSc"  )
+
+midx=match(selectNames, colnames(D4))
+
+DT::datatable(D4[ , na.omit(midx)], rownames=F, filter = 'top', class='cell-border stripe',extensions="Buttons", options=list(dom="Bfrtip",scoller = TRUE, pageLength = 5,  buttons=c(I('colvis'),'csv', 'excel'), columnDefs = list(list(visible=FALSE, targets=c(12:length(na.omit(midx)))))))
 ```
 
 #### Tier D: Variants of unknown significance
@@ -67,7 +76,9 @@ The following variants:
 ```{r, eval=T}
 D5=read.delim(data$SNVVUS)
 
-DT::datatable(D5[ ,c(1:10, 14:15, 22:25, 27:30)], rownames=F, filter = 'top', class='cell-border stripe',extensions="Buttons", options=list(dom="Bfrtip",scoller = TRUE, pageLength = 5,  buttons=c(I('colvis'),'csv', 'excel'), columnDefs = list(list(visible=FALSE, targets=c(1:3, 5:7, 12, 14:17)))))
+midx=match(selectNames, colnames(D5))
+
+DT::datatable(D5[ ,na.omit(midx)], rownames=F, filter = 'top', class='cell-border stripe',extensions="Buttons", options=list(dom="Bfrtip",scoller = TRUE, pageLength = 5,  buttons=c(I('colvis'),'csv', 'excel'), columnDefs = list(list(visible=FALSE, targets=c(12:length(na.omit(midx)))))))
 ```
 
 #### Tier E: ACMG variants
@@ -79,8 +90,9 @@ The following variants:
 
 ```{r, eval=T}
 D6=read.delim(data$SNVACMG)
+midx=match(selectNames, colnames(D6))
 
-DT::datatable(D6[ ,c(1:10, 14:15, 22:25, 27:30)], rownames=F, filter = 'top', class='cell-border stripe',extensions="Buttons", options=list(dom="Bfrtip",scoller = TRUE, pageLength = 5,  buttons=c(I('colvis'),'csv', 'excel'), columnDefs = list(list(visible=FALSE, targets=c(1:3, 5:7, 12, 14:17)))))
+DT::datatable(D6[ ,na.omit(midx)], rownames=F, filter = 'top', class='cell-border stripe',extensions="Buttons", options=list(dom="Bfrtip",scoller = TRUE, pageLength = 5,  buttons=c(I('colvis'),'csv', 'excel'), columnDefs = list(list(visible=FALSE, targets=c(12:length(na.omit(midx)))))))
 ```
 
 
