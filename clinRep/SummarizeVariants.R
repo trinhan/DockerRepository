@@ -1,9 +1,9 @@
 #!/usr/bin/Rscript
-"usage: \n SummarizeVariants.R [--maffile=<file> --outputname=<string> --germline=<boolean> --caddscore=<integer> --gnomadcutoff=<float> --exomesize=<float> --Ncallerthresh=<int> --pathwayList=<string> --ACMG=<file> --AddList=<file>]
+"usage: \n SummarizeVariants.R [--maffile=<file> --outputname=<string> --germline=<boolean> --caddscore=<float> --gnomadcutoff=<float> --exomesize=<float> --Ncallerthresh=<int> --pathwayList=<string> --ACMG=<file> --AddList=<file>]
 \n options:\n --maffile=<file> maffile that has been annotated using vep & oncokb.
 \n --outputname=<string> output string
 \n --germline=<boolean> [default: TRUE] is this in germline mode
-\n --caddscore=<integer> [default: 20] score for cadd cut-off
+\n --caddscore=<float> [default: 20] score for cadd cut-off
 \n --gnomadcutoff=<float> [default: 0.1]
 \n --exomesize=<float> [default: 45] how big the indicated coding regions? For Mutational Burden calculations
 \n --Ncallerthresh=<int> [default: 0] minimum number of callers required to output the variant
@@ -30,7 +30,7 @@ opts <- docopt(doc)
     ColNames=read.csv(opts$columnEntries, header=F)
   }else{
     print('column entries null')
-    ColNames=read.csv("/annotFiles/ColumnIDs.csv", header=F)
+    ColNames=read.csv("annotFiles/ColumnIDs.csv", header=F)
   }
   
   ## check which colnames mataches the original file
@@ -38,9 +38,9 @@ opts <- docopt(doc)
   mNames=colnames(mydnames)[na.omit(midx)]
   
   InputData=fread(opts$maffile, sep="\t", select=c(mNames, gnames, gnames2, gnames3, gnames4))
-  print(colnames(InputData))
+  #print(colnames(InputData))
   
-  print(ColNames$V2[which(!is.na(midx))])
+  #print(ColNames$V2[which(!is.na(midx))])
   
   rm1=c(grep("HLA", InputData$Hugo_Symbol))
   Test1=InputData[setdiff(1:nrow(InputData), rm1), 1:length(mNames) ]
@@ -49,17 +49,17 @@ opts <- docopt(doc)
   
   ## rename columns if they don't exist
   if ( !"ClinVar.Disease"%in%newNames & "ClinVar_Trait"%in%newNames){
-    print('rename column')
+    print('rename column clinvar')
     colnames(Test1)[which(newNames=="ClinVar_Trait")]="ClinVar.Disease"
   }
   
   if (!"ClinVar.Sig"%in%newNames & "ClinSig"%in%newNames){
-     print('rename column')
+     print('rename column ClinSig')
      colnames(Test1)[which(newNames=="ClinSig")]="ClinVar.Sig"
   }
   
   if (!"gnomAD.AF"%in%newNames & "gnomad_MAX_AF"%in%newNames){
-    print('rename column')
+    print('rename column gnomad')
     colnames(Test1)[which(newNames=="gnomad_MAX_AF")]="gnomAD.AF"
   }
   
@@ -144,8 +144,8 @@ opts <- docopt(doc)
   Nx2=sapply(strSplitA, function(x) length(which(c("pathogenic", "Pathogenic", "Likely_pathogenic", "likely_pathogenic")%in%x)))
   Lx2=which(Nx2>0)
   Lx3=intersect(Lx1, Lx2)
-  
-  Keep0=Test1[Lx3, ]
+  sprintf("%s variants in ACMG list", length(Lx3))
+  Keep0=Test1[Lx3, ]%>%select(!"AF_max")
 
   #if (length(Lx3)>0){
   #  Keep0=Test1[Lx3, ]
@@ -156,72 +156,73 @@ opts <- docopt(doc)
   print('Finding cancer variants')
   ## Known Variants associated with cancer?
   bx1=which(Test1$CancerGeneCensus.Tier%in%c("1", "2", "Hallmark") & Test1$CancerMutationCensus.Tier%in%c(1:3))
-  print(length(bx1))
+  sprintf('%s in Cosmic', length(bx1))
   cx1=grep("Oncogenic", Test1$Oncokb.ONCOGENIC)
-  print(length(cx1))
+  sprintf('%s in Oncokb', length(cx1))
   mx1=unique(sort(c(bx1, cx1)))
-  Keep1=Test1[mx1,-match("AF_max", colnames(Test1)) ]
+  sprintf('Total %s cancer variants', length(mx1))
+  Keep1=Test1[mx1, ] %>% select(!"AF_max")
   
   print('Finding drug assoc variants')
   ## Known Variants associated with drug response or 
   nx1=grep("drug_response|protective", Test1$ClinVar.Sig)
-  print(length(nx1))
-  Keep2=Test1[nx1, -match("AF_max", colnames(Test1)) ]
+  sprintf("%s variants realted to drug response or protective effect", length(nx1))
+  Keep2=Test1[nx1, ]%>%select(!"AF_max")
   
   sprintf('Finding other VUS. Filter by gnomad AF %s and CADD score of %s', opts$gnomadcutoff, opts$caddscore )
   
   ConsequenceVals=c("missense", "nonsense", "frameshift", "splice", "UTR", "inframe")
   if (opts$caddscore>0){
-  ax1=which(Test1$CADD>opts$caddscore & (Test1$AF_max<opts$gnomadcutoff | is.na(Test1$AF_max)) & Test1$ProteinDomain!=" ")
+  ax1=which(Test1$CADD>as.numeric(opts$caddscore) & Test1$AF_max<opts$gnomadcutoff & Test1$ProteinDomain!=" ")
   } else {
   Nxgrep=sapply(ConsequenceVals, function(x) grep(x, Test1$Consequence))
   Test1$ConsB=NA
   Test1$ConsB[unlist(Nxgrep)]=1
-  ax1=which((Test1$AF_max<opts$gnomadcutoff  | is.na(Test1$AF_max)) & Test1$ProteinDomain!=" " & 
+  ax1=which(Test1$AF_max<opts$gnomadcutoff & Test1$ProteinDomain!=" " & 
               Test1$ConsB==1)
   }
-  print(length(ax1))
-  Keep3=Test1[setdiff(ax1, c(nx1, mx1)), -match("AF_max", colnames(Test1)) ]
+  sprintf("%s variants are VUS ", length(ax1))
+  Keep3=Test1[setdiff(ax1, c(nx1, mx1)),  ]%>%select(!"AF_max")
 
   sprintf('Find genes involved in %s pathway', opts$pathwayList)
   ## Pathways of Interest /opt/PathwayList.csv
-  PWtable=read.csv("/annotFiles/PathwayList.csv")
+  PWtable=read.csv("annotFiles/PathwayList.csv")
   nx=which(colnames(PWtable)==opts$pathwayList)
   nx=setdiff(as.vector(PWtable[ ,nx]), "")
-  print(nx)
   ex1=unique(unlist(sapply(nx, function(x) grep(x, Test1$HallmarkPathways))))
-  
-  print(length(ex1))
+  sprintf( "%s variants pathway of interest" ,length(ex1))  
+
   if (!is.null(opts$AddList)){
     ex2=which(Test1$UserGeneList==1)
     ex1=unique(c(ex1, ex2))
-    print(length(ex2))
+    sprintf( "%s variants in user defined list" ,length(ex2))
     }
   
-  Keep4=Test1[ex1, -match("AF_max", colnames(Test1)) ]
+  Keep4=Test1[ex1, ]%>%select(!"AF_max")
 
   # Refine this to include CADD high score if it does not affect a coding region
   lx1=which(is.na(Keep4$HGVSp))
   if (opts$caddscore>0){
-    rmT=which(Keep4$ClinVar.Sig!="Benign" | Keep4$CADD>opts$caddscore)
+    print('keep variants with high cadd cutoff')
+    rmT=which(Keep4$ClinVar.Sig!="Benign" | Keep4$CADD>as.numeric(opts$caddscore))
   } else{
+    print('keep variants with high cadd cutoff')
     rmT=which(Keep4$ClinVar.Sig!="Benign" & Keep4$ConsB==1)
   }
-  Keep4=Keep4[setdiff(rmT, lx1),-match("AF_max", colnames(Test1))  ]
+  Keep4=Keep4[setdiff(rmT, lx1),]
   
     
   ## Summary of variants which fits the cadd cutoffs, gnomad AF cutoffs and is in a coding region
-  if (opts$caddscore>0){
-    nidx=which(Test1$AF_max<opts$gnomadcutoff & Test1$CADD>opts$caddscore & !Test1$Consequence%in%
-                 c("synonymous_variant", "intergenic_variant", "intron_variant","intron_variant&non_coding_transcript_variant",
-                   "upstream_gene_variant", "downstream_gene_variant"))
-  }else{
-    nidx=which(Test1$AF_max<opts$gnomadcutoff & !Test1$Consequence%in%
-                 c("synonymous_variant", "intergenic_variant", "intron_variant","intron_variant&non_coding_transcript_variant",
-                    "upstream_gene_variant", "downstream_gene_variant"))
-  }
-    FilteredTable=Test1[nidx,-match("AF_max", colnames(Test1))  ]
+  print('generate coding list')
+  if (opts$caddscore>0) {
+    nidx=which(Test1$AF_max<opts$gnomadcutoff & Test1$CADD>as.numeric(opts$caddscore) & Test1$ConsB==1)
+    sprintf("Summarize variants withcadd %s, gnomad %s Consequence coding, Expanded list contains %s variants", opts$caddscore,opts$gnomadcutoff, length(nidx))
     
+  }else{
+    nidx=which(Test1$AF_max<opts$gnomadcutoff & Test1$ConsB==1)
+    sprintf("Summarize variants with gnomad %s Consequence coding, Expanded list contains %s variants", opts$gnomadcutoff, length(nidx))
+  }
+  FilteredTable=Test1[nidx,  ]%>%select(!"AF_max")    
     ## Summary Stats
   DFValues=data.frame(Nvar=nrow(Test1), Cancer=length(mx1), DrugResp=length(nx1), Hallmark=nrow(Keep4), OtherVUS=nrow(Keep3), ACMG=nrow(Keep0), Filtered=length(nidx))
     
