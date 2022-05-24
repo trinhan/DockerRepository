@@ -71,8 +71,10 @@ opts <- docopt(doc)
   if (!"MGRB.AF"%in%newNames & "gnomAD.AF"%in%colnames(Test1)){
     print('gnomad only')
     Test1$AF_max=Test1$gnomAD.AF
+    Test1$AF_max[which(is.na(Test1$AF_max))]=0
   } else if ("MGRB.AF"%in%newNames & "gnomAD.AF"%in%colnames(Test1)){
     Test1$AF_max=ifelse(Test1$gnomAD.AF>Test1$MGRB.AF, Test1$gnomAD.AF, Test1$MGRB.AF)
+    Test1$AF_max[which(is.na(Test1$AF_max))]=0
   }
   
   print('Parse ClinVar and Protein annotations')
@@ -102,7 +104,7 @@ opts <- docopt(doc)
   ## collapse the genotypes if more than 1 column is found
   VAF=InputData %>% select(all_of(gnames3))
   VAF2=rowMeans(VAF, na.rm = T)
-  Test1$VAF=round(VAF2[setdiff(1:nrow(InputData), rm1)], 2)
+  Test1$VAF=round(VAF2[setdiff(1:nrow(InputData), rm1)], 3)
   ax=ncol(GT)
   if (ax>1){
   m1=which(GT[ ,1]!=GT[,2])
@@ -158,19 +160,19 @@ opts <- docopt(doc)
   cx1=grep("Oncogenic", Test1$Oncokb.ONCOGENIC)
   print(length(cx1))
   mx1=unique(sort(c(bx1, cx1)))
-  Keep1=Test1[mx1, ]
+  Keep1=Test1[mx1,-match("AF_max", colnames(Test1)) ]
   
   print('Finding drug assoc variants')
   ## Known Variants associated with drug response or 
   nx1=grep("drug_response|protective", Test1$ClinVar.Sig)
   print(length(nx1))
-  Keep2=Test1[nx1, ]
+  Keep2=Test1[nx1, -match("AF_max", colnames(Test1)) ]
   
   sprintf('Finding other VUS. Filter by gnomad AF %s and CADD score of %s', opts$gnomadcutoff, opts$caddscore )
   
   ConsequenceVals=c("missense", "nonsense", "frameshift", "splice", "UTR", "inframe")
   if (opts$caddscore>0){
-  ax1=which(Test1$CADD>opts$caddscore & (Test1$AF_max| is.na(Test1$AF_max)) & Test1$ProteinDomain!=" ")
+  ax1=which(Test1$CADD>opts$caddscore & (Test1$AF_max<opts$gnomadcutoff | is.na(Test1$AF_max)) & Test1$ProteinDomain!=" ")
   } else {
   Nxgrep=sapply(ConsequenceVals, function(x) grep(x, Test1$Consequence))
   Test1$ConsB=NA
@@ -179,7 +181,7 @@ opts <- docopt(doc)
               Test1$ConsB==1)
   }
   print(length(ax1))
-  Keep3=Test1[setdiff(ax1, c(nx1, mx1)), ]
+  Keep3=Test1[setdiff(ax1, c(nx1, mx1)), -match("AF_max", colnames(Test1)) ]
 
   sprintf('Find genes involved in %s pathway', opts$pathwayList)
   ## Pathways of Interest /opt/PathwayList.csv
@@ -196,7 +198,7 @@ opts <- docopt(doc)
     print(length(ex2))
     }
   
-  Keep4=Test1[ex1, ]
+  Keep4=Test1[ex1, -match("AF_max", colnames(Test1)) ]
 
   # Refine this to include CADD high score if it does not affect a coding region
   lx1=which(is.na(Keep4$HGVSp))
@@ -205,10 +207,24 @@ opts <- docopt(doc)
   } else{
     rmT=which(Keep4$ClinVar.Sig!="Benign" & Keep4$ConsB==1)
   }
-  Keep4=Keep4[setdiff(rmT, lx1), ]
+  Keep4=Keep4[setdiff(rmT, lx1),-match("AF_max", colnames(Test1))  ]
   
-  ## Summary Stats
-  DFValues=data.frame(Nvar=nrow(Test1), Cancer=length(mx1), DrugResp=length(nx1), Hallmark=nrow(Keep4),OtherVUS=nrow(Keep3), ACMG=nrow(Keep0))
+    
+  ## Summary of variants which fits the cadd cutoffs, gnomad AF cutoffs and is in a coding region
+  if (opts$caddscore>0){
+    nidx=which(Test1$AF_max<opts$gnomadcutoff & Test1$CADD>opts$caddscore & !Test1$Consequence%in%
+                 c("synonymous_variant", "intergenic_variant", "intron_variant","intron_variant&non_coding_transcript_variant",
+                   "upstream_gene_variant", "downstream_gene_variant"))
+  }else{
+    nidx=which(Test1$AF_max<opts$gnomadcutoff & !Test1$Consequence%in%
+                 c("synonymous_variant", "intergenic_variant", "intron_variant","intron_variant&non_coding_transcript_variant",
+                    "upstream_gene_variant", "downstream_gene_variant"))
+  }
+    FilteredTable=Test1[nidx,-match("AF_max", colnames(Test1))  ]
+    
+    ## Summary Stats
+  DFValues=data.frame(Nvar=nrow(Test1), Cancer=length(mx1), DrugResp=length(nx1), Hallmark=nrow(Keep4), OtherVUS=nrow(Keep3), ACMG=nrow(Keep0), Filtered=length(nidx))
+    
   
   print('Finished! Writing out files')
   write.table(Keep0, file=paste(opts$outputname, "ACMG.filt.maf", sep=""), sep="\t", row.names = F, quote = F)
@@ -217,5 +233,6 @@ opts <- docopt(doc)
   write.table(Keep3, file=paste(opts$outputname, "pathogenicVUS.filt.maf", sep=""), sep="\t", row.names = F, quote = F)
   write.table(Keep4, file=paste(opts$outputname, "PathwayVariants.filt.maf", sep=""), sep="\t", row.names = F, quote = F)
   write.table(DFValues, file=paste(opts$outputname, "variantSummary.filt.maf", sep=""), sep = "\t", row.names = F,  quote = F)
+  write.table(FilteredTable, file=paste(opts$outputname, "variantsCoding.filt.maf", sep=""), sep = "\t", row.names = F,  quote = F)
 #}
 

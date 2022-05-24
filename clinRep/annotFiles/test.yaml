@@ -1,12 +1,13 @@
 Sample: Test-Sample
 Age: XX
 Tumour: 
-Treatment: 
+Treatment:
+Patient Summary:  
 Response status: 
 Metastasis: 
-TreatmentKeywords: DNADamage
+Treatment Keywords: DNADamage
 Tissue: 
-AnalysisMode: Tumour
+Analysis Mode: Tumour
 SNVsummary: ${snvsummary}
 SNVHallmark: ${snvhallmark}
 SNVVUS: ${snvvus}
