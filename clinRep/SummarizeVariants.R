@@ -30,7 +30,7 @@ opts <- docopt(doc)
     ColNames=read.csv(opts$columnEntries, header=F)
   }else{
     print('column entries null')
-    ColNames=read.csv("annotFiles/ColumnIDs.csv", header=F)
+    ColNames=read.csv("/annotFiles/ColumnIDs.csv", header=F)
   }
   
   ## check which colnames mataches the original file
@@ -172,21 +172,21 @@ opts <- docopt(doc)
   sprintf('Finding other VUS. Filter by gnomad AF %s and CADD score of %s', opts$gnomadcutoff, opts$caddscore )
   
   ConsequenceVals=c("missense", "nonsense", "frameshift", "splice", "UTR", "inframe")
-  if (opts$caddscore>0){
-  ax1=which(Test1$CADD>as.numeric(opts$caddscore) & Test1$AF_max<opts$gnomadcutoff & Test1$ProteinDomain!=" ")
-  } else {
   Nxgrep=sapply(ConsequenceVals, function(x) grep(x, Test1$Consequence))
   Test1$ConsB=NA
   Test1$ConsB[unlist(Nxgrep)]=1
+  if (opts$caddscore>0){
+  ax1=which(Test1$CADD>as.numeric(opts$caddscore) & Test1$AF_max<opts$gnomadcutoff & Test1$ProteinDomain!=" ")
+  } else {
   ax1=which(Test1$AF_max<opts$gnomadcutoff & Test1$ProteinDomain!=" " & 
               Test1$ConsB==1)
   }
   sprintf("%s variants are VUS ", length(ax1))
-  Keep3=Test1[setdiff(ax1, c(nx1, mx1)),  ]%>%select(!"AF_max")
+  Keep3=Test1[setdiff(ax1, c(nx1, mx1)),  ]%>%select(!c("AF_max", "ConsB"))
 
   sprintf('Find genes involved in %s pathway', opts$pathwayList)
   ## Pathways of Interest /opt/PathwayList.csv
-  PWtable=read.csv("annotFiles/PathwayList.csv")
+  PWtable=read.csv("/annotFiles/PathwayList.csv")
   nx=which(colnames(PWtable)==opts$pathwayList)
   nx=setdiff(as.vector(PWtable[ ,nx]), "")
   ex1=unique(unlist(sapply(nx, function(x) grep(x, Test1$HallmarkPathways))))
@@ -198,7 +198,7 @@ opts <- docopt(doc)
     sprintf( "%s variants in user defined list" ,length(ex2))
     }
   
-  Keep4=Test1[ex1, ]%>%select(!"AF_max")
+  Keep4=Test1[ex1, ]%>%select(!c("AF_max", "ConsB"))
 
   # Refine this to include CADD high score if it does not affect a coding region
   lx1=which(is.na(Keep4$HGVSp))
@@ -222,7 +222,7 @@ opts <- docopt(doc)
     nidx=which(Test1$AF_max<opts$gnomadcutoff & Test1$ConsB==1)
     sprintf("Summarize variants with gnomad %s Consequence coding, Expanded list contains %s variants", opts$gnomadcutoff, length(nidx))
   }
-  FilteredTable=Test1[nidx,  ]%>%select(!"AF_max")    
+  FilteredTable=Test1[nidx,  ]%>%select(!c("AF_max", "ConsB"))   
     ## Summary Stats
   DFValues=data.frame(Nvar=nrow(Test1), Cancer=length(mx1), DrugResp=length(nx1), Hallmark=nrow(Keep4), OtherVUS=nrow(Keep3), ACMG=nrow(Keep0), Filtered=length(nidx))
     
