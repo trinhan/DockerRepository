@@ -81,8 +81,8 @@ seqlevelsStyle(genes) <- "UCSC"
 
 
 kp <- plotKaryotype(chromosomes=c("autosomal"), genome="hg38", plot.type=2)
-kpPlotRegions(kp, gainMat2, col=gainMat2$AFcol,data.panel = 1)
-kpPlotRegions(kp, lossMat2, col=lossMat2$AFcol,data.panel = 2)
+ax=tryCatch({kpPlotRegions(kp, gainMat2, col=gainMat2$AFcol,data.panel = 1)}, error=function(e){NULL})
+ax=tryCatch({kpPlotRegions(kp, lossMat2, col=lossMat2$AFcol,data.panel = 2)}, error=function(e){NULL})
 ax=tryCatch({kpPlotRegions(kp, invMat2, col=invMat2$AFcol,data.panel = 3)}, error=function(e){NULL})
 kpPlotMarkers(kp, data=genes, labels=genes$hgnc_symbol, text.orientation = "horizontal",
               r1=0.75, cex=0.5, adjust.label.position = FALSE)

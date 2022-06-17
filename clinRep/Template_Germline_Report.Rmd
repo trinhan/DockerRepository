@@ -169,12 +169,13 @@ Additional Annotations:
 | |[Haplotypecaller (CNN filtering)](https://gatk.broadinstitute.org/hc/en-us/articles/360037225632-HaplotypeCaller)| [gatk:4.2.0.0](us.gcr.io/broad-gatk/gatk:4.2.0.0)|
 | |[Pisces](https://github.com/Illumina/Pisces) | [v5.2.10.49](https://hub.docker.com/repository/docker/trinhanne/pisces)|
 | |[Strelka2](https://github.com/Illumina/strelka/releases) | [v2.9.10](https://hub.docker.com/r/erictdawson/strelka2)|
+| |[Vardict](https://github.com/AstraZeneca-NGS/VarDict) | [v1.8.3](quay.io/biocontainers/vardict-java:1.8.3--hdfd78af)|
 **CNV calling** | | 
 |-|[GATK4 CNV](https://gatk.broadinstitute.org/hc/en-us/articles/360035531092--How-to-part-I-Sensitively-detect-copy-ratio-alterations-and-allelic-segments)| [v4.1.7.0](https://dockstore.org/workflows/github.com/broadinstitute/gatk/cnv_somatic_pair_workflow:4.1.7.0)|
 **Structural Variants** | | |
- |- | [Manta](https://github.com/Illumina/manta) | [Manta: v1.6.0](quay.io/biocontainers/manta:1.6.0--h9ee0642_1) |
+ |- | [Manta](https://github.com/Illumina/manta) | [Manta: v1.6.0](https://quay.io/repository/biocontainers/vardict-java?tab=tags&tag=1.8.3--hdfd78af_) |
 **Annotation** | | |
 SNV|[VEP104](https://asia.ensembl.org/info/docs/tools/vep/index.html)| [CADDr3.0](https://cadd.gs.washington.edu/download) [ClinVar20211030](https://ftp.ncbi.nlm.nih.gov/pub/clinvar/) [revel-v1.3](https://sites.google.com/site/revelgenomics/downloads)
 SNV|[Oncokb](https://www.oncokb.org/)| [v3.1.1](https://github.com/oncokb/oncokb-annotator)
-CNV|[Funcotator](https://gatk.broadinstitute.org/hc/en-us/articles/360035531092--How-to-part-I-Sensitively-detect-copy-ratio-alterations-and-allelic-segments)|[v1.6.20190124](https://dockstore.org/workflows/github.com/broadinstitute/gatk/cnv_somatic_pair_workflow:4.1.7.0) 
+CNV|[AnnotSV](https://www.lbgi.fr/AnnotSV/)| [v3.0.5](https://www.lbgi.fr/AnnotSV/)
 SV|[AnnotSV](https://www.lbgi.fr/AnnotSV/)| [v3.0.5](https://www.lbgi.fr/AnnotSV/)
