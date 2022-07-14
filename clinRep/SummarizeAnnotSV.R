@@ -1,5 +1,5 @@
 #!/usr/bin/Rscript
-"usage: \n SummarizeAnnotSV.R [--AnnotSVtsv=<file> --outputname=<string> --germline=<boolean> --MSigDB=<file> --GTex=<file> --CosmicList=<file> --AddList=<file> --pathwayList=<string> --ACMGCutoff=<integer> --Tissue=<string> --CNV=<boolean> --PASSfilt=<boolean>]
+"usage: \n SummarizeAnnotSV.R [--AnnotSVtsv=<file> --outputname=<string> --germline=<boolean> --MSigDB=<file> --GTex=<file> --CosmicList=<file> --AddList=<file> --pathwayList=<string> --ACMGCutoff=<integer> --Tissue=<string> --CNV=<boolean> --SRfilter=<integer> --PRfilter=<integer> --PASSfilt=<boolean>]
 \n options:\n --AnnotSVtsv=<file> tsv from AnnotSV.
 \n --outputname=<string> output string
 \n --germline=<boolean> [default: TRUE] is this in germline mode
@@ -11,6 +11,8 @@
 \n --ACMGCutoff=<integer> Cut off value to assess these variants. Anything below this will not be further annotated [default:4]
 \n --Tissue=<string> Tissue type 
 \n --CNV=<boolean> Whether the input is a CNV or SV
+\n --SRfilter=<integer> [default: 1] Minimum number of SR to support SV
+\n --PRfilter=<integer> [default: 1] Minimum number of PR to support SV
 \n --PASSfilt=<boolean> filter variants with PASS tag [default=TRUE] " -> doc
 
 ## Include the pathway List!
@@ -48,24 +50,6 @@ opts <- docopt(doc)
 
   Pheno=ifelse(InputData$SV_type=="DEL", InputData$P_loss_phen, ifelse(InputData$SV_type=="DUP", InputData$P_gain_phen, 
                                                                        ifelse(InputData$SV_type=="INS", InputData$P_ins_phen, InputData$P_snvindel_phen)))
-
-  if (opts$CNV){
-    CN=sapply(temp, function(x) x[2])
-    InputData$CN=CN
-  } else {
-    PR=sapply(temp, function(x) x[5])
-    PR2=strsplit(PR, ",")
-    SR=sapply(temp, function(x) x[6])
-    SR2=strsplit(SR, ",")
-    PRVAF=round(sapply(PR2, function(x) as.numeric(x[2])/(sum(as.numeric(x)))), 2)
-    SRVAF=round(sapply(SR2, function(x) as.numeric(x[2])/(sum(as.numeric(x)))), 2)
-    MeanVAF=round(sapply(1:length(PR2), function(x) sum(c(as.numeric(PR2[[x]][2]),as.numeric(SR2[[x]][2])), na.rm=T)/
-                           sum(c(as.numeric(PR2[[x]]), as.numeric(SR2[[x]])), na.rm=T)), 2)
-    InputData$PRVAF=PRVAF
-    InputData$SRVAF=SRVAF
-    InputData$MeanVAF=MeanVAF
-    InputData$Depth=sapply(1:length(PRVAF), function(x) sum(c(as.numeric(PR2[[x]]), as.numeric(SR2[[x]])), na.rm = T))
-  }
   
   InputData$GT=GT
   InputData$Pheno=Pheno
@@ -75,6 +59,7 @@ opts <- docopt(doc)
   Genes=strsplit(InputData$Gene_name, ";")
   ### Get the information on ACMG genes
   filtVals=which(InputData$ACMG_class>=opts$ACMGCutoff | InputData$TAD_coordinate!="")
+  
   print('Annotate implicated genes with pathway data')  
   PathInH=getGmt(con=opts$MSigDB, geneIdType=SymbolIdentifier(),
                  collectionType=BroadCollection(category="h"))
@@ -143,12 +128,39 @@ opts <- docopt(doc)
   Nx2=sapply(Genes, function(x) paste(x[which(x%in%CData$Gene.Symbol)], collapse=", "))
   InputData$Cosmic=Nx2
   
+  print('Additional SV or CNV specific filter')
+  ## Additional information based on AnnotSV output
+  if (opts$CNV){
+    CN=sapply(temp, function(x) x[2])
+    InputData$CN=CN
+  } else {
+    PR=sapply(temp, function(x) x[5])
+    PR2=strsplit(PR, ",")
+    SR=sapply(temp, function(x) x[6])
+    SR2=strsplit(SR, ",")
+    PRVAF=round(sapply(PR2, function(x) as.numeric(x[2])/(sum(as.numeric(x)))), 2)
+    SRVAF=round(sapply(SR2, function(x) as.numeric(x[2])/(sum(as.numeric(x)))), 2)
+    MeanVAF=round(sapply(1:length(PR2), function(x) sum(c(as.numeric(PR2[[x]][2]),as.numeric(SR2[[x]][2])), na.rm=T)/
+                           sum(c(as.numeric(PR2[[x]]), as.numeric(SR2[[x]])), na.rm=T)), 2)
+    InputData$PRVAF=PRVAF
+    InputData$SRVAF=SRVAF
+    InputData$MeanVAF=MeanVAF
+    InputData$Depth=sapply(1:length(PRVAF), function(x) sum(c(as.numeric(PR2[[x]]), as.numeric(SR2[[x]])), na.rm = T))
+    PRcounts=sapply(PR2, function(x) as.numeric(x[2]))
+    SRcounts=sapply(SR2, function(x) as.numeric(x[2]))
+    tx1=which(PRcounts>opts$PRfilter & SRcounts>opts$SRfilter)
+    InputData=InputData[tx1, ]
+  }
+  
+  
   print('Finished! Write out formated output table')
   if (opts$CNV){
     write.table(InputData, file=paste(opts$outputname, ".CNV.formated.tsv", sep=""), sep="\t", row.names = F, quote = F)
   } else {
-    write.table(InputData, file=paste(opts$outputname, ".SV.formated.tsv", sep=""), sep="\t", row.names = F, quote = F)
-    
+    InputDataFull=InputData[InputData$Annotation_mode=="full", ]
+    InputDataSplit=InputData[InputData$Annotation_mode=="split", ]
+    write.table(InputDataFull, file=paste(opts$outputname, ".SV.formated.tsv", sep=""), sep="\t", row.names = F, quote = F)
+    write.table(InputDataSplit, file=paste(opts$outputname, ".SV.split.formated.tsv", sep=""), sep="\t", row.names = F, quote = F)
   }
 #}
 
