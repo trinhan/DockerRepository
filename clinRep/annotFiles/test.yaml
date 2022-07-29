@@ -1,13 +1,13 @@
-Sample: Test-Sample
-Age: XX
+Sample: 
+Age: 
 Tumour: 
 Treatment:
 Patient Summary:  
 Response status: 
 Metastasis: 
-Treatment Keywords: DNADamage
+Treatment Keywords: 
 Tissue: 
-Analysis Mode: Tumour
+Analysis Mode: 
 SNVsummary: ${snvsummary}
 SNVHallmark: ${snvhallmark}
 SNVVUS: ${snvvus}
@@ -16,3 +16,5 @@ SNVcancerRes: ${snvcancer}
 SNVACMG: ${snvacmg}
 gCNVAnnotSV: ${cnvAnnot}
 gSVAnnotSV: ${svAnnot}
+gSVsplitAnnotSV: ${SVsplit}
+ploidyFile: contig_ploidy.tsv

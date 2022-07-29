@@ -46,6 +46,9 @@ opts <- docopt(doc)
   CosmicD=CosmicD[m1,c("Mutation AA", "POS","ONC_TSG","CGC_TIER","DISEASE", "CLINVAR_TRAIT","MUTATION_SIGNIFICANCE_TIER") ]
   colnames(CosmicD)=paste("CMC", colnames(CosmicD), sep=".")
   AllData=cbind(AllData, CosmicD)
+  # another comment: find genes which are oncogenes, but not exact mut site
+  tx2=match(AllData$Hugo_Symbol, CosmicD$GENE_NAME)
+  AllData$CMC.Cancer_Gene=CosmicD$ONC_TSG[tx2]
   rm(CosmicD)
   print('Add protein domain annotations from pfam and psird')
   

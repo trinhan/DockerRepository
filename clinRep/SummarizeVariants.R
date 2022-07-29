@@ -155,7 +155,8 @@ opts <- docopt(doc)
   
   print('Finding cancer variants')
   ## Known Variants associated with cancer?
-  bx1=which(Test1$CancerGeneCensus.Tier%in%c("1", "2", "Hallmark") & Test1$CancerMutationCensus.Tier%in%c(1:3))
+  bx1=which((Test1$CancerGeneCensus.Tier%in%c("1", "2", "Hallmark") & Test1$CancerMutationCensus.Tier%in%c(1:3))|
+              !is.na(Test1$CMC.Cancer_Gene))
   sprintf('%s in Cosmic', length(bx1))
   cx1=grep("Oncogenic", Test1$Oncokb.ONCOGENIC)
   sprintf('%s in Oncokb', length(cx1))

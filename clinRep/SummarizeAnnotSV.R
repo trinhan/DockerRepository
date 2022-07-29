@@ -33,7 +33,8 @@ opts <- docopt(doc)
   }
   
   print('Remove blacklisted regions from ENCODE')
-  rmx=which(InputData$ENCODE_blacklist_characteristics_left=="" & InputData$ENCODE_blacklist_characteristics_right=="")
+  rmx=which((InputData$ENCODE_blacklist_characteristics_left==""|is.na(InputData$ENCODE_blacklist_characteristics_left)) & 
+              (InputData$ENCODE_blacklist_characteristics_right==""|is.na(InputData$ENCODE_blacklist_characteristics_right)))
   InputData=InputData[rmx, ]
   print('Tidy pheno-geno data')
   Psource=ifelse(InputData$SV_type=="DEL", InputData$P_loss_source,ifelse(InputData$SV_type=="DUP", InputData$P_gain_source, InputData$P_ins_source))

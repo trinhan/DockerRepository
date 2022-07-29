@@ -5,11 +5,13 @@ Summary of the number of variants:
 
 * ACMG score 3 and above
 * Variant Allele Frequency above 0.25
+* Only variants with supporting split reads
 
 ```{r, eval=T, message=F}
 library(karyoploteR)
 dGenes=data$gSVAnnotSV
 AnnotSV2=read.delim(dGenes)
+## remove:  &
 AnnotSV=AnnotSV2[which(AnnotSV2$ACMG_class%in%c(3,4,5) & AnnotSV2$MeanVAF>0.25), ]
 ```
 
@@ -147,17 +149,18 @@ colB=temp2$Col
 ggplot(temp2, aes(x=Gene, y=1, fill=SV_type))+geom_tile()+  theme(axis.text.x = element_blank(), axis.ticks.x = element_blank())+scale_fill_manual(values = c("#3182bd", "#9ecae1", "#de2d26"))+expand_limits(y = 0.25)+geom_text(aes(colour = colB, label = Gene), y = 0.35, angle=90)+facet_grid(~SV_chrom, space="free", scales="free")+scale_colour_manual(values = c("blue", "purple", "red"), guide = F)
 ```
 
+** Multi-gene spanning SVs **
+
 ```{r}
 lx1=which((AnnotSV$GenesOfInterest!=""| AnnotSV$Cosmic!="") & AnnotSV$ACMG_class>=3 & (AnnotSV$AF<=0.1 | is.na(AnnotSV$AF)) & AnnotSV$MeanVAF>0.25)
-Scolnames=c("SV_chrom", "SV_start", "SV_end","SV_type", "SV_length", "ACMG_class", "AF", "GT","MeanVAF",
-            "GenesOfInterest","Cosmic", "Pathways","GTex", "Gene_name",  "Pheno")
+Scolnames=c("SV_chrom", "SV_start", "SV_end","SV_type", "SV_length", "ACMG_class", "AF", "GT","MeanVAF","SRVAF", "GenesOfInterest","Cosmic", "Pathways","GTex", "Gene_name",  "Pheno")
 T1=AnnotSV[lx1, Scolnames]
-colnames(T1)=c("CHROM", "START", "END", "TYPE", "SV_length", "ACMG", "Pop Freq", "GT", "VAF", "GenesOfInterest", "Cosmic", "Pathways", "GTex", "Gene Names", "CLinVar Phenotypes")
+colnames(T1)=c("CHROM", "START", "END", "TYPE", "SV_length", "ACMG", "Pop Freq", "GT", "VAF", "SR-VAF", "GenesOfInterest", "Cosmic", "Pathways", "GTex", "Gene Names", "CLinVar Phenotypes")
 
-DT::datatable(T1, rownames=F, filter = 'top', class='cell-border stripe',extensions="Buttons", options=list(dom="Bfrtip",scoller = TRUE, pageLength = 5,  buttons=c(I('colvis'),'csv', 'excel'), columnDefs = list(list(visible=FALSE, targets=c(10:13)))))
+DT::datatable(T1, rownames=F, filter = 'top', class='cell-border stripe',extensions="Buttons", options=list(dom="Bfrtip",scoller = TRUE, pageLength = 5,  buttons=c(I('colvis'),'csv', 'excel'), columnDefs = list(list(visible=FALSE, targets=c(12:14)))))
 ```
 
-##### Gene level summary
+#### Gene level summary
 
 The following fields are gene level annotations from AnnotSV: please see this documentation for more information: https://lbgi.fr/AnnotSV/Documentation/README.AnnotSV_latest.pdf
 
@@ -168,7 +171,7 @@ The following fields are gene level annotations from AnnotSV: please see this do
 ```{r, eval=T, message=F}
 dGenes=data$gSVsplitAnnotSV
 AnnotSVGenes=read.delim(dGenes)
-AnnotSVGenes=read.delim("/Users/anntri/gitLibs/WDLPipelines/cromwell-executions/ClinicalReport/7ca9d50f-4214-4abb-9b14-f72cf3ea114f/call-CreateClinical/execution/ER095_MEL3N.SV.split.formated.tsv")
+#AnnotSVGenes=read.delim("/Users/anntri/gitLibs/WDLPipelines/cromwell-executions/ClinicalReport/7ca9d50f-4214-4abb-9b14-f72cf3ea114f/call-CreateClinical/execution/ER095_MEL3N.SV.split.formated.tsv")
 AnnotSVGenes$OMIM_morb=ifelse(AnnotSVGenes$OMIM_morbid=="yes", "morbid", ifelse(AnnotSVGenes$OMIM_morbid_candidate=="yes", "candidate", "no"))
 #AnnotSV=AnnotSV2[which(AnnotSV2$ACMG_class%in%c(3,4,5) & AnnotSV2$MeanVAF>0.25), ]
 ```
@@ -180,16 +183,17 @@ CGenes=which(AnnotSVGenes$Cosmic!="" & AnnotSVGenes$MeanVAF>0.2)
 CGenesSV=AnnotSVGenes[CGenes, ]
 Scolnames=c("Gene_name","AnnotSV_ID", "SV_type", "SV_length", "ACMG_class", "Location", "AF", "HI", "TS","OMIM_phenotype", "OMIM_morb",
             "RE_gene", "Dist_nearest_SS", "TAD_coordinate",
-             "Bsource", "Psource", "GnomAD_pLI", "ExAC_pLI",
+             "Bsource", "Psource", "GnomAD_pLI", "ExAC_pLI", "SRVAF",
             "MeanVAF", "Depth")
 CGenesSVfilt=CGenesSV[ ,Scolnames]
 
-colnames(CGenesSVfilt)=c("GENE","SV_ID", "TYPE", "SV_length", "ACMG", "Location", "Pop Freq", "Haploinsufficiency", "Triplosensitivity", "OMIM", "OMIM_morbid", "Reg.Element.Genes", "Nearest.Splice.Site.bp", "TAD", "BenignSource", "PathogenicSource", "gnomad.pLI", "exac.pLI", "MeanVAF", "Depth")
+colnames(CGenesSVfilt)=c("GENE","SV_ID", "TYPE", "SV_length", "ACMG", "Location", "Pop Freq", "Haploinsufficiency", "Triplosensitivity", "OMIM", "OMIM_morbid", "Reg.Element.Genes", "Nearest.Splice.Site.bp", "TAD", "BenignSource", "PathogenicSource", "gnomad.pLI", "exac.pLI", "SplitReadVAF", "MeanVAF", "Depth")
 
-DT::datatable(CGenesSVfilt, rownames=F, filter = 'top', class='cell-border stripe',extensions="Buttons", options=list(dom="Bfrtip",scoller = TRUE, pageLength = 7,  buttons=c(I('colvis'),'csv', 'excel'), columnDefs = list(list(visible=FALSE, targets=c(9, 11, 12, 13,14, 17:19)))))
+DT::datatable(CGenesSVfilt, rownames=F, filter = 'top', class='cell-border stripe',extensions="Buttons", options=list(dom="Bfrtip",scoller = TRUE, pageLength = 7,  buttons=c(I('colvis'),'csv', 'excel'), columnDefs = list(list(visible=FALSE, targets=c(9, 11, 12, 13,14, 17:20)))))
               
 
 ```
+
 **Pathway related genes**
 
 ```{r}
@@ -197,13 +201,13 @@ PGenes=which(AnnotSVGenes$GenesOfInterest!="" & AnnotSVGenes$MeanVAF>0.2)
 PGenesSV=AnnotSVGenes[PGenes, ]
 Scolnames=c("Gene_name","AnnotSV_ID", "SV_type", "SV_length", "ACMG_class", "Location", "AF", "HI", "TS","OMIM_phenotype", "OMIM_morb",
             "RE_gene", "Dist_nearest_SS", "TAD_coordinate",
-             "Bsource", "Psource", "GnomAD_pLI", "ExAC_pLI",
+             "Bsource", "Psource", "GnomAD_pLI", "ExAC_pLI","SRVAF",
             "MeanVAF", "Depth")
 PGenesSVfilt=PGenesSV[ ,Scolnames]
 
-colnames(PGenesSVfilt)=c("GENE","SV_ID", "TYPE", "SV_length", "ACMG", "Location", "Pop Freq", "Haploinsufficiency", "Triplosensitivity", "OMIM", "OMIM_morbid", "Reg.Element.Genes", "Nearest.Splice.Site.bp", "TAD", "BenignSource", "PathogenicSource", "gnomad.pLI", "exac.pLI", "MeanVAF", "Depth")
+colnames(PGenesSVfilt)=c("GENE","SV_ID", "TYPE", "SV_length", "ACMG", "Location", "Pop Freq", "Haploinsufficiency", "Triplosensitivity", "OMIM", "OMIM_morbid", "Reg.Element.Genes", "Nearest.Splice.Site.bp", "TAD", "BenignSource", "PathogenicSource", "gnomad.pLI", "exac.pLI", "SplitReadVAF", "MeanVAF", "Depth")
 
-DT::datatable(PGenesSVfilt, rownames=F, filter = 'top', class='cell-border stripe',extensions="Buttons", options=list(dom="Bfrtip",scoller = TRUE, pageLength = 7,  buttons=c(I('colvis'),'csv', 'excel'), columnDefs = list(list(visible=FALSE, targets=c(9, 11, 12, 13,14, 17:19)))))
+DT::datatable(PGenesSVfilt, rownames=F, filter = 'top', class='cell-border stripe',extensions="Buttons", options=list(dom="Bfrtip",scoller = TRUE, pageLength = 7,  buttons=c(I('colvis'),'csv', 'excel'), columnDefs = list(list(visible=FALSE, targets=c(9, 11, 12, 13,14, 17:20)))))
               
 
 ```

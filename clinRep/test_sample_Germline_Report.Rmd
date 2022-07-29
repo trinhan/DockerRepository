@@ -1,5 +1,5 @@
 ---
-title: "Genomics Report: Research Use Only"
+title: "Germline Genomics Report: Research Use Only"
 date: "`r Sys.Date()`"
 output: 
  html_document: 
@@ -50,14 +50,15 @@ library(biomaRt)
 ##  Outputdir: where to save temporary output files
 ##  ClinRep: clinical information to include
 
-knitr::opts_chunk$set(echo = FALSE, warning = F, fig.width=12, fig.height=8, warning = F)
+knitr::opts_chunk$set(echo = FALSE, warning = F, fig.width=12, fig.height=8)
 data=read_yaml("final.yml")
+getwd()
 ```
 
 ### Sample Information
  
 ```{r, warning=FALSE}
-clinSum=unlist(data[1:9])
+clinSum=unlist(data[1:6])
 kable((clinSum), col.names = c("Patient Information"))
 ```
 
@@ -67,7 +68,7 @@ kable((clinSum), col.names = c("Patient Information"))
 
 Coming soon
 
-```{r child='sv-insert.Rmd', eval=F}
+```{r child='GermlineSV-insert.Rmd', eval=F}
 ```
 
 ## Germline Variants
@@ -83,7 +84,7 @@ RunCV=ifelse(is.null(data$gCNVAnnotSV), F, T)
 
 `r ifelse(RunCV==F, print('CNV analysis not available for this sample'), print(""))`
 
-```{r child = 'gatk-cnv-germline-insert.Rmd', eval=RunCV}
+```{r child = 'gatk-cnv-germline-insert.Rmd'}
 ```
 
 ## Structural Variants
@@ -97,21 +98,6 @@ RunSV=ifelse(is.null(data$gSVAnnotSV), F, T)
 ```{r child = 'GermlineSV-insert.Rmd', eval=RunSV}
 ```
 
-## Ploidy Summary
-
-```{r}
-CallPloidy=ifelse(is.null(data$ploidyFile), F, T)
-```
-
-`r ifelse(CallPloidy==F, print('Ploidy information is not available'), print("")) `
-
-```{r, eval=CallPloidy}
-
-PloidyVals=read.delim(data$ploidyFile)
-PloidyVals=read.delim("~/Downloads/sample_08.ER095N.contig_ploidy_calls/contig_ploidy.tsv", sep="\t", skip=1)
-
-DT::datatable(PloidyVals, rownames = F, options=list(pageLength = 24))
-```
 
 ## Interpretation Guide
 
@@ -160,19 +146,8 @@ Additional Annotations:
 
 #### Structural Variants
 
-Structural Variants are identified using Manta
-
-Shown are variants scored level 3, 4 or 5 (most deleterious) ACMG class
-Variant Allele Frequency must be greater than 25%
-
-Additional Annotations:
-
-* ACMG: score of 4 or 5 indicates likely pathogenicity or pathogenicity from AnnotSV algorithm
-* Population frequencies of variants beginning at the same start point from DDD or gnomadSV
-* HallmarkPathways annotated using MSigDB
-* Cosmic: Genes of interest have been indicated as having an oncogenic or TSG function by Cosmic
-* Genes of Interest: Additional GOIs from a user-defined list
-* GTex: a z-score of the expression of the defined gene in the tissue of interest (e.g. skin for melanoma) compared to all other tissues. Higher value indicates higher expression in tissue of interest.
+Break points with at least 5 split reads or 10 paired reads supporting the break point are retained.
+Shown are variants scored level 4 or 5 (most deleterious) ACMG class
 
 ## Methods
 
@@ -184,13 +159,12 @@ Additional Annotations:
 | |[Haplotypecaller (CNN filtering)](https://gatk.broadinstitute.org/hc/en-us/articles/360037225632-HaplotypeCaller)| [gatk:4.2.0.0](us.gcr.io/broad-gatk/gatk:4.2.0.0)|
 | |[Pisces](https://github.com/Illumina/Pisces) | [v5.2.10.49](https://hub.docker.com/repository/docker/trinhanne/pisces)|
 | |[Strelka2](https://github.com/Illumina/strelka/releases) | [v2.9.10](https://hub.docker.com/r/erictdawson/strelka2)|
-| |[Vardict](https://github.com/AstraZeneca-NGS/VarDict) | [v1.8.3](quay.io/biocontainers/vardict-java:1.8.3--hdfd78af)|
-**CNV calling & Ploidy Estimation** | | 
+**CNV calling** | | 
 |-|[GATK4 CNV](https://gatk.broadinstitute.org/hc/en-us/articles/360035531092--How-to-part-I-Sensitively-detect-copy-ratio-alterations-and-allelic-segments)| [v4.1.7.0](https://dockstore.org/workflows/github.com/broadinstitute/gatk/cnv_somatic_pair_workflow:4.1.7.0)|
 **Structural Variants** | | |
- |- | [Manta](https://github.com/Illumina/manta) | [Manta: v1.6.0](https://quay.io/repository/biocontainers/vardict-java?tab=tags&tag=1.8.3--hdfd78af_) |
+ |- | [Manta](https://github.com/Illumina/manta) | [Manta: v1.6.0](quay.io/biocontainers/manta:1.6.0--h9ee0642_1) |
 **Annotation** | | |
 SNV|[VEP104](https://asia.ensembl.org/info/docs/tools/vep/index.html)| [CADDr3.0](https://cadd.gs.washington.edu/download) [ClinVar20211030](https://ftp.ncbi.nlm.nih.gov/pub/clinvar/) [revel-v1.3](https://sites.google.com/site/revelgenomics/downloads)
 SNV|[Oncokb](https://www.oncokb.org/)| [v3.1.1](https://github.com/oncokb/oncokb-annotator)
-CNV|[AnnotSV](https://www.lbgi.fr/AnnotSV/)| [v3.0.5](https://www.lbgi.fr/AnnotSV/)
+CNV|[Funcotator](https://gatk.broadinstitute.org/hc/en-us/articles/360035531092--How-to-part-I-Sensitively-detect-copy-ratio-alterations-and-allelic-segments)|[v1.6.20190124](https://dockstore.org/workflows/github.com/broadinstitute/gatk/cnv_somatic_pair_workflow:4.1.7.0) 
 SV|[AnnotSV](https://www.lbgi.fr/AnnotSV/)| [v3.0.5](https://www.lbgi.fr/AnnotSV/)
