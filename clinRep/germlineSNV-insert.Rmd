@@ -28,7 +28,7 @@ D2=read.delim(data$SNVcancerRes)
 #BioVar=Xout$Func[ , (match(SearchTerms, colnames(Xout$Func)))]
 #colnames(BioVar)=cNames
 selectNames=c("SYMBOL","rsID", "HGVSp",	"EXON",	"Consequence","ProteinDomain",
-              "Cancer.Disease.Freq","ClinVar.Disease", "HallmarkPathways","UserGeneList","CMC.Oncogene", "VAF",	 "ClinVar.Sig","CADD", "PolyPhen", "Genotype", "Depth", "CHROM",	"POS","HGVSc", "gnomAD.AF", "MGRB.AF" )
+              "Cancer.Disease.Freq","ClinVar.Disease", "HallmarkPathways","UserGeneList","CMC.Oncogene","gnomAD.AF","VAF",	 "ClinVar.Sig","CADD", "PolyPhen", "Genotype", "Depth", "CHROM",	"POS","HGVSc",  "MGRB.AF","CancerGeneCensus.Tier","CancerMutationCensus.Tier" )
 midx=match(selectNames, colnames(D2))
 DT::datatable(D2[ , na.omit(midx)], rownames=F, filter = 'top', class='cell-border stripe',extensions="Buttons", options=list(dom="Bfrtip",scoller = TRUE, pageLength = 5,  buttons=c(I('colvis'),'csv', 'excel'), columnDefs = list(list(visible=FALSE, targets=c(13: length(na.omit(midx))-1)))))
 ```
@@ -57,8 +57,8 @@ The following variants annotated with clinvar have reported the following:
 ```{r, eval=T}
 D4=read.delim(data$SNVdrugresponse)
 
-selectNames=c("SYMBOL","rsID", "HGVSp",	"EXON",	"Consequence","ProteinDomain","CADD", "PolyPhen", "gnomAD.AF", "MGRB.AF",
-              "Cancer.Disease.Freq","ClinVar.Disease", "HallmarkPathways","UserGeneList", "VAF",  "ClinVar.Sig","Genotype", "Depth", "CHROM",	"POS","HGVSc"  )
+selectNames=c("SYMBOL","rsID", "HGVSp",	"EXON",	"Consequence","ProteinDomain","CADD", "PolyPhen", "gnomAD.AF", "CancerGeneCensus.Tier",
+              "Cancer.Disease.Freq","ClinVar.Disease", "HallmarkPathways","UserGeneList", "VAF",  "ClinVar.Sig","Genotype", "Depth", "CHROM",	"POS","HGVSc","CancerMutationCensus.Tier" , "MGRB.AF" )
 
 midx=match(selectNames, colnames(D4))
 

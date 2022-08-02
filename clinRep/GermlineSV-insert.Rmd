@@ -76,11 +76,11 @@ UniqueGenesB=unique(unlist(strsplit(AnnotSV$Cosmic, ", ")))
 Tx3=na.omit(unique(c(UniqueGenesA, UniqueGenesB)))
 Tx3=setdiff(Tx3, data$TreatmentKeywords)
 
-ensembl <- useEnsembl(biomart="ensembl", dataset="hsapiens_gene_ensembl")
-genes <- toGRanges(getBM(attributes=c('chromosome_name', 'start_position', 'end_position', 'hgnc_symbol'),
-               filters = 'hgnc_symbol', values =Tx3, mart = ensembl))
-seqlevelsStyle(genes) <- "UCSC"
-
+# ensembl <- useEnsembl(biomart="ensembl", dataset="hsapiens_gene_ensembl")
+# genes <- toGRanges(getBM(attributes=c('chromosome_name', 'start_position', 'end_position', 'hgnc_symbol'),
+#                filters = 'hgnc_symbol', values =Tx3, mart = ensembl))
+# seqlevelsStyle(genes) <- "UCSC"
+genes=genesAll[na.omit(match(Tx3, genesAll$hgnc_symbol))]
 
 kp <- plotKaryotype(chromosomes=c("autosomal"), genome="hg38", plot.type=2)
 ax=tryCatch({kpPlotRegions(kp, gainMat2, col=gainMat2$AFcol,data.panel = 1)}, error=function(e){NULL})
@@ -166,7 +166,7 @@ The following fields are gene level annotations from AnnotSV: please see this do
 
 * GenCC Haploinsufficiency,Triplosensitivity: [0-3] 3 max score for dosage pathogenicity. Scores of 40/30 evidence for no dosage sensitivity and autosomal recessive
 * OMIM: disease annotation from OMIM and morbidity from loss
-* pLI: intolerance to loss of function predictions on a gene level from gnomad or ExAC
+* pLI: intolerance to protein truncating variants from gnomad or ExAC [0 -1]: closer to 1 is predicted intolerance
 
 ```{r, eval=T, message=F}
 dGenes=data$gSVsplitAnnotSV

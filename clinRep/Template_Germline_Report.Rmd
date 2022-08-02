@@ -52,6 +52,7 @@ library(biomaRt)
 
 knitr::opts_chunk$set(echo = FALSE, warning = F, fig.width=12, fig.height=8, warning = F)
 data=read_yaml("final.yml")
+load("/annotFiles/ensembl_granges_genes_290722.RData")
 ```
 
 ### Sample Information
@@ -62,13 +63,6 @@ kable((clinSum), col.names = c("Patient Information"))
 ```
 
 # Genomic Information {.tabset}
-
-## Overivew
-
-Coming soon
-
-```{r child='sv-insert.Rmd', eval=F}
-```
 
 ## Germline Variants
 
@@ -106,12 +100,22 @@ CallPloidy=ifelse(is.null(data$ploidyFile), F, T)
 `r ifelse(CallPloidy==F, print('Ploidy information is not available'), print("")) `
 
 ```{r, eval=CallPloidy}
+PloidyVals=read.delim(data$ploidyFile, skip=1)
+whichDiff=which(PloidyVals[1:22, 2]!=2)
+isX=ifelse(PloidyVals[23,2]==2 & PloidyVals[24,2]==0, "female", ifelse(PloidyVals[23,2]==1 & PloidyVals[24,2]==1, "male", "unsure"))
+```
 
-PloidyVals=read.delim(data$ploidyFile)
-PloidyVals=read.delim("~/Downloads/sample_08.ER095N.contig_ploidy_calls/contig_ploidy.tsv", sep="\t", skip=1)
+`r ifelse(CallPloidy==T & length(whichDiff)==0, sprintf('All autosomes have normal ploidy and the patient is %s', isX), sprintf("Chromosome %s has aberrant ploidy and the patient is %s", whichDiff, isX))`
 
+```{r, eval=CallPloidy}
 DT::datatable(PloidyVals, rownames = F, options=list(pageLength = 24))
 ```
+
+## Overivew
+
+```{r child='overview-germline.Rmd'}
+```
+
 
 ## Interpretation Guide
 
@@ -135,7 +139,7 @@ Variants have been grouped into 5 main clusters:
 * *Tier B: Pathway Related* Variants in genes that affect pathways which are related to the mode of action of the treatment
 * *Tier C: Protective or drug related* These variants have been documented to have either a protective effect, or can influence the efficacy of drug treatments
 * *Tier D: Variants of Unknown Significance* These variants are predicted to be highly deleterious but do not appear in any of the previous categories
-* *Tier E: Variants of Unknown Significance* These variants lie in genes listed by ACMG 
+* *Tier E: ACMG variants* These variants lie in genes listed by ACMG 
 
 #### CNVs
 

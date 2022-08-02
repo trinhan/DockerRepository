@@ -14,6 +14,7 @@ library(karyoploteR)
 ##cnvIn=cnvIn[-which(cnvIn@fix[ ,5])]
 dGenes=data$gCNVAnnotSV
 AnnotCNV=read.delim(dGenes)
+AnnotCNV$OMIM_morb=ifelse(AnnotCNV$OMIM_morbid=="yes", "morbid", ifelse(AnnotCNV$OMIM_morbid_candidate=="yes", "candidate", "no"))
 ```
 
 
@@ -58,22 +59,24 @@ homlossMat<- GRanges(seqnames=paste0("chr",AnnotCNV[homloss, 2]), ranges=IRanges
 homlossMat$AFcol=brewer.pal(5, "Blues")[cut(homlossMat$AF, c(0,  0.8, 0.9, 0.95, 1))]
 homlossMat$AFcol=ifelse(homlossMat$path!="", "#006d2c", homlossMat$AFcol)
 
-UniqueGenesA=unique(unlist(strsplit(AnnotCNV$GenesOfInterest[c(gain, homloss)], ",")))
+UniqueGenesA=unique(unlist(strsplit(AnnotCNV$GenesOfInterest[c(gain, homloss)], " ")))
 UniqueGenesB=unique(unlist(strsplit(AnnotCNV$Cosmic[c(gain, homloss)], ", ")))
 Tx3=na.omit(unique(c(UniqueGenesA, UniqueGenesB)))
 Tx3=setdiff(Tx3, data$TreatmentKeywords)
 
-ensembl <- useEnsembl(biomart="ensembl", dataset="hsapiens_gene_ensembl")
-genes <- toGRanges(getBM(attributes=c('chromosome_name', 'start_position', 'end_position', 'hgnc_symbol'),
-               filters = 'hgnc_symbol', values =Tx3, mart = ensembl))
-seqlevelsStyle(genes) <- "UCSC"
+ if (length(Tx3)>1){
+ #   ensembl <- useEnsembl(biomart="ensembl", dataset="hsapiens_gene_ensembl")
+ #   genes <- toGRanges(getBM(attributes=c('chromosome_name', 'start_position', 'end_position', 'hgnc_symbol'),
+ #                filters = 'hgnc_symbol', values =Tx3, mart = ensembl))
+ #   seqlevelsStyle(genes) <- "UCSC"
+ genes=genesAll[na.omit(match(Tx3, genesAll$hgnc_symbol))]
+  }
 
 kp <- plotKaryotype(chromosomes=c("autosomal"), genome="hg38",plot.type=2)
 ax=tryCatch({kpPlotRegions(kp, gainMat, col=gainMat$AFcol,data.panel = 1)}, error=function(e){NULL})
 ax=tryCatch({kpPlotRegions(kp, homlossMat, col=homlossMat$AFcol,data.panel = 2)}, error=function(e){NULL})
+ax=tryCatch({kpPlotMarkers(kp, data=genes, labels=genes$hgnc_symbol, text.orientation = "horizontal", r1=0.75, cex=0.5, adjust.label.position = FALSE)}, error=function(e){NULL})
 
-kpPlotMarkers(kp, data=genes, labels=genes$hgnc_symbol, text.orientation = "horizontal",
-              r1=0.75, cex=0.5, adjust.label.position = FALSE)
 
 ```
 
@@ -138,24 +141,46 @@ temp2$Gene=factor(temp2$Gene, levels=temp2$Gene)
 
 colB=temp2$Col
 
-ggplot(temp2, aes(x=Gene, y=1, fill=CN))+geom_tile()+  theme(axis.text.x = element_blank(), axis.ticks.x = element_blank())+scale_fill_manual(values = c("#3182bd", "#9ecae1", "#de2d26"))+expand_limits(y = 0.25)+geom_text(aes(colour = colB, label = Gene), y = 0.35, angle=90)+facet_grid(~SV_chrom, space="free", scales="free")+scale_colour_manual(values = c("blue", "purple", "red"), guide = F)
+ggplot(temp2, aes(x=Gene, y=1, fill=CN))+geom_tile()+  theme(axis.text.x = element_blank(), axis.ticks.x = element_blank())+scale_fill_manual(values = c("#3182bd", "#9ecae1", "#ee969","#de2d26", "white"))+expand_limits(y = 0.25)+geom_text(aes(colour = colB, label = Gene), y = 0.35, angle=90)+facet_grid(~SV_chrom, space="free", scales="free")+scale_colour_manual(values = c("blue", "purple", "red"), guide = F)
+```
+
+**Multi-gene variants**
+
+```{r}
+Scolnames=c("SV_chrom", "SV_start", "SV_end", "CN", "Pheno", "ACMG_class", "Location", "AF", "HI", "TS","OMIM_phenotype", "OMIM_morb",
+            "RE_gene", "Dist_nearest_SS", "TAD_coordinate",
+             "Bsource", "Psource", "GnomAD_pLI", "ExAC_pLI","GenesOfInterest","Cosmic", "Pathways","GTex", "Gene_name")
+T1=AnnotCNV[lx1, Scolnames]
+colnames(T1)=c("CHROM", "START", "END", "CN", "Pheno", "ACMG_class","Location", "Pop.Freq", "Haploinsufficiency", "Triplosensitivity", "OMIM", "OMIM_morbid", "Reg.Element.Genes", "Nearest.Splice.Site.bp", "TAD", "BenignSource", "PathogenicSource", "gnomad.pLI", "exac.pLI", "GenesOfInterest", "Cosmic", "Pathways", "GTex", "Gene_name")
+
+rmIdx=grep("full", T1$ACMG_class)
+
+test1=sapply(strsplit(T1$Gene_name, ","), function(x) length(x))
+rmidx=which(test1>1)
+T1a=T1[rmidx, ]
+MGexist=ifelse(nrow(T1a)>0, T, F)
+```
+
+`r ifelse(MGexist==F, print('There are no CNVs spanning multiple genes'), print('The CNVs spanning multiple genes are shown below:'))`
+
+```{r, eval=MGexist}
+DT::datatable(T1a, rownames=F, filter = 'top', class='cell-border stripe',extensions="Buttons", options=list(dom="Bfrtip",scoller = TRUE, pageLength = 5,  buttons=c(I('colvis'),'csv', 'excel'), columnDefs = list(list(visible=FALSE, targets=c(4,5,10)))))
+
 ```
 
 
-```{r}
-Scolnames=c("SV_chrom", "SV_start", "SV_end", "CN", "Pheno", "ACMG_class", "AF", 
-            "GenesOfInterest","Cosmic", "Pathways","GTex", "Gene_name")
-T1=AnnotCNV[lx1, Scolnames]
-colnames(T1)[1:3]=c("CHROM", "START", "END")
+**Gene level results**
 
-DT::datatable(T1, rownames=F, filter = 'top', class='cell-border stripe',extensions="Buttons", options=list(dom="Bfrtip",scoller = TRUE, pageLength = 5,  buttons=c(I('colvis'),'csv', 'excel'), columnDefs = list(list(visible=FALSE, targets=c(4)))))
+```{r}
+T1b=T1[grep("full", T1$ACMG_class), c(1:3,24, 22, 4:21, 23 )]
+DT::datatable(T1b, rownames=F, filter = 'top', class='cell-border stripe',extensions="Buttons", options=list(dom="Bfrtip",scoller = TRUE, pageLength = 5,  buttons=c(I('colvis'),'csv', 'excel'), columnDefs = list(list(visible=FALSE, targets=c(6,8,12)))))
 
 ```
 
 
 #### ACMG class 4 or 5 regions
 
-The following variants are level 4 or 5 based on ACMG guidelines
+The following variants are level 4 or 5 based on AnnotSV ACMG prediction. Review the genes and population frequencies to assess whether they are relevant or not:
 
 ```{r, fig.height=6}
 filt2=which(AnnotCNV$ACMG_class%in%c(4,5))
@@ -173,16 +198,17 @@ UniqueGenesB=unique(unlist(strsplit(AnnotCNV$Cosmic[filt2], ", ")))
 Tx3=na.omit(unique(c(UniqueGenesA, UniqueGenesB)))
 Tx3=setdiff(Tx3, data$TreatmentKeywords)
 
-ensembl <- useEnsembl(biomart="ensembl", dataset="hsapiens_gene_ensembl")
-genes <- toGRanges(getBM(attributes=c('chromosome_name', 'start_position', 'end_position', 'hgnc_symbol'),
-               filters = 'hgnc_symbol', values =Tx3, mart = ensembl))
-seqlevelsStyle(genes) <- "UCSC"
                       
 kp <- plotKaryotype(chromosomes=c("autosomal"), genome="hg38", main = "ACMG regions", plot.type=2)
-kpPlotRegions(kp, ACMGMat[which(ACMGMat$SVtype=="DUP")], col=ACMGMat$AFcolF,data.panel = 1)
-kpPlotRegions(kp, ACMGMat[which(ACMGMat$SVtype!="DUP")], col=ACMGMat$AFcolF,data.panel = 2)
-kpPlotMarkers(kp, data=genes, labels=genes$hgnc_symbol, text.orientation = "horizontal",
-              r1=0.75, cex=0.5, adjust.label.position = FALSE)
+ax=tryCatch({kpPlotRegions(kp, ACMGMat[which(ACMGMat$SVtype=="DUP")], col=ACMGMat$AFcolF,data.panel = 1)},  error=function(e){NULL})
+ax=tryCatch({kpPlotRegions(kp, ACMGMat[which(ACMGMat$SVtype!="DUP")], col=ACMGMat$AFcolF,data.panel = 2)}, error=function(e){NULL})
+
+if (length(Tx3)>=1){
+genes=genesAll[na.omit(match(Tx3, genesAll$hgnc_symbol))]
+kpPlotMarkers(kp, data=genes, labels=genes$hgnc_symbol, text.orientation = "horizontal", r1=0.75, cex=0.5, adjust.label.position = FALSE)
+}
+#
+
 ```
 
 
@@ -196,9 +222,9 @@ kpPlotMarkers(kp, data=genes, labels=genes$hgnc_symbol, text.orientation = "hori
 Scolnames=c("SV_chrom", "SV_start", "SV_end", "CN", "Pheno", "ACMG_class", "AF", 
             "GenesOfInterest","Cosmic", "Pathways","GTex", "Gene_name")
 T1=AnnotCNV[filt2, Scolnames]
-colnames(T1)[1:3]=c("CHROM", "START", "END")
+colnames(T1)[c(1:3,7)]=c("CHROM", "START", "END", "PopFreq")
 
-DT::datatable(T1, rownames=F, filter = 'top', class='cell-border stripe',extensions="Buttons", options=list(dom="Bfrtip",scoller = TRUE, pageLength = 7,  buttons=c(I('colvis'),'csv', 'excel'), columnDefs = list(list(visible=TRUE))))
+DT::datatable(T1, rownames=F, filter = 'top', class='cell-border stripe',extensions="Buttons", options=list(dom="Bfrtip",scoller = TRUE, pageLength = 7,  buttons=c(I('colvis'),'csv', 'excel')))
 
 ```
 

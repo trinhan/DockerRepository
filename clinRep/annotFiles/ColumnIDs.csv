@@ -16,7 +16,7 @@ PolyPhen,PolyPhen
 ClinVar_CLNSIG,ClinVar.Sig
 ClinVar_CLNDN,ClinVar.Disease
 ClinVar,ClinVar
-CMC.CGC_TIER,CancerGeneCensus.Tier
+CMC.Cancer_Gene_Tier,CancerGeneCensus.Tier
 CMC.MUTATION_SIGNIFICANCE_TIER,CancerMutationCensus.Tier
 CMC.ONC_TSG,CMC.Oncogene
 CMC.DISEASE,Cancer.Disease.Freq

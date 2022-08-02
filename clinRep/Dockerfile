@@ -18,5 +18,6 @@ RUN mkdir template
 COPY *.R /opt/
 COPY *.Rmd /template/
 COPY annotFiles/* /annotFiles/
+COPY data_scripts/* data_scripts
 
 COPY Dockerfile /opt/

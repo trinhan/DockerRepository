@@ -1,9 +1,10 @@
 #!/usr/bin/Rscript
-"usage: \n DBAnnotations.R [--maffile=<file> --outputfile=<file> --cosmicMut=<file> --MSigDB=<file> --pfam=<file> --pirsf=<file>]
+"usage: \n DBAnnotations.R [--maffile=<file> --outputfile=<file> --cosmicMut=<file> --cosmicGenes=<file> --MSigDB=<file> --pfam=<file> --pirsf=<file>]
 \n options:\n --maffile=<file> maffile that has been annotated using vep.
 \n --outputfile=<file> output file
 \n --sampleName=<string> If sample list has more than 1 sample, include a csv file with all identifiers, otherwise set as 'NULL' [default: NULL]
 \n --cosmicMut=<file> File containing list of Cosmic Mutations
+\n --cosmicGenes=<file> File of Cosmic Cancer Genes
 \n --MSigDB=<file> File containing MsigDB gene set information 
 \n --pfam=<file> File containing pfam annotations [default: NULL]
 \n --pirsf=<file> File containing psirf annotations [default: NULL] " -> doc
@@ -13,6 +14,7 @@ opts <- docopt(doc)
 
   library(data.table, quietly = T)
   library(GSEABase, quietly = T)
+ library(dplyr, quietly = T)
   
   print('reading in maffile')
   
@@ -43,20 +45,30 @@ opts <- docopt(doc)
   mmx1=match(ax1, bx1)
   m1=match(aax1, bbx1)
   m1[which(!is.na(mmx1))]=mmx1[which(!is.na(mmx1))]
+  
   CosmicD=CosmicD[m1,c("Mutation AA", "POS","ONC_TSG","CGC_TIER","DISEASE", "CLINVAR_TRAIT","MUTATION_SIGNIFICANCE_TIER") ]
   colnames(CosmicD)=paste("CMC", colnames(CosmicD), sep=".")
   AllData=cbind(AllData, CosmicD)
   # another comment: find genes which are oncogenes, but not exact mut site
-  tx2=match(AllData$Hugo_Symbol, CosmicD$GENE_NAME)
-  AllData$CMC.Cancer_Gene=CosmicD$ONC_TSG[tx2]
   rm(CosmicD)
+  
+  print('check Cosmic Genes')
+  Cosmic2=read.csv(opts$cosmicGenes)
+  tx2=match(AllData$Hugo_Symbol, Cosmic2$Gene.Symbol)
+  #head(Cosmic2)
+  #length(na.omit(tx2))
+  AllData$CMC.Cancer_Gene_Tier=NA
+  AllData$CMC.Cancer_Gene_Tier[which(!is.na(tx2))]=Cosmic2$Tier[na.omit(tx2)]
+  tx3=match(AllData$Hugo_Symbol, Cosmic2$Gene.Symbol[which(Cosmic2$Hallmark=="Yes")])
+  AllData$CMC.Cancer_Gene_Tier[which(!is.na(tx3))]=paste("Hallmark", AllData$CMC.Cancer_Gene_Tier[which(!is.na(tx3))])
+  
   print('Add protein domain annotations from pfam and psird')
   
   pfamI=read.delim(opts$pfam, header=F, sep="\t")
 
   pirsfinfo=read.delim(opts$pirsf, sep=")", header=F, quote="")
-  head(pirsfinfo)
-  class(pirsfinfo)
+  #head(pirsfinfo)
+  #class(pirsfinfo)
   pirsfinfo$V3=NA
   pirsfinfo$V3=substr(pirsfinfo$V1, 2, 12)
   
