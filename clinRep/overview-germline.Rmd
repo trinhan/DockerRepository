@@ -11,6 +11,9 @@ if (nrow(D6)>0){
   allSNV=rbind(allSNV,cbind(D6[ , STerms], class="ACMG"))
 }
 
+rmIdx=which(allSNV$Consequence%in%c("synonymous_variant", "intergenic_variant"))
+allSNV=allSNV[-rmIdx, ]
+
 ##,  )
 # combine the SVs
 allSV=rbind(cbind(PGenesSVfilt, class="Pathway"), cbind(CGenesSVfilt, class="Cosmic"))
@@ -42,7 +45,7 @@ t5=ifelse(T1b$Haploinsufficiency>1 & T1b$Haploinsufficiency<=3, "Haploinsufficie
 
 allCNVb=data.frame(SYMBOL=T1b$Gene_name, Genomic.Pos=t4, Location=T1b$Location, PopFreq=T1b$Pop.Freq, VariantType=paste0("CN ", T1b$CN),Pathogenicity=t5, Disease=T1b$OMIM, VariantCategory=ifelse(T1b$Cosmic=="", "Pathway", "Cosmic"))
 
-venn(list(SNV=allSNVb$SYMBOL, SV=allSVb$SYMBOL, CNV=allCNVb$SYMBOL))
+venn(list(SNV=unique(allSNVb$SYMBOL), SV=unique(allSVb$SYMBOL), CNV=unique(allCNVb$SYMBOL)))
 ```
 
 **Genes with both SNVs and SV/CNV**
@@ -53,27 +56,32 @@ a2=intersect(allSNVb$SYMBOL,allCNVb$SYMBOL)
 a3=intersect(allSVb$SYMBOL,allCNVb$SYMBOL)
 a4=intersect(a1, a2)
 
-n1=allSNVb[which(allSNVb$SYMBOL==a1), ]
-n2=allSVb[which(allSVb$SYMBOL==a1), ]
-n3=allSNVb[which(allCNVb$SYMBOL==a2), ]
+n1=allSNVb[which(allSNVb$SYMBOL%in%a1), ]
+n2=allSVb[which(allSVb$SYMBO%in%a1), ]
+n3=allSNVb[which(allCNVb$SYMBOL%in%a2), ]
 
+Alldf1=rbind(n1, n2, n3)
 
-# colnames(n1)=c("GENE", "ID", "CHROM", "POS", "HGVSp", "TYPE", "Pop Freq", "ClinSig","Location", "CLASS")
-# colnames(n2)=c("GENE", "ID", "TYPE", "", )
-# 
- Alldf1=rbind(n1, n2, n3)
+``` 
  
- DT::datatable(Alldf1, rownames = F)
+Includes: `r sort(print(unique(Alldf1$SYMBOL)))`
+ 
+```{r}
+ DT::datatable(Alldf1,rownames=F, filter = 'top', class='cell-border stripe',extensions="Buttons", options=list(dom="Bfrtip",scoller = TRUE, pageLength = 5,  buttons=c(I('colvis'),'csv', 'excel')))
 ```
 
 **Genes with both SVs and CNVs**
 
 ```{r}
 
-n1b=allCNVb[which(allCNVb$SYMBOL==a3), ]
-n2b=allSVb[which(allSVb$SYMBOL==a3), ]
+n1b=allCNVb[which(allCNVb$SYMBOL%in%a3), ]
+n2b=allSVb[which(allSVb$SYMBOL%in%a3), ]
 
 Alldf2=rbind(n1b, n2b)
- 
-DT::datatable(Alldf2, rownames = F)
+```
+
+Includes:  `r sort(print(unique(Alldf2$SYMBOL)))`
+
+```{r}
+DT::datatable(Alldf2, rownames=F, filter = 'top', class='cell-border stripe',extensions="Buttons", options=list(dom="Bfrtip",scoller = TRUE, pageLength = 5,  buttons=c(I('colvis'),'csv', 'excel')))
 ```

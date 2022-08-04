@@ -118,30 +118,33 @@ if (length(tx3)>0){
 }
 
 temp1=unique(temp1)
+temp1$Gene=ifelse(temp1$GenesOfInterest=="", temp1$Cosmic, ifelse(temp1$Cosmic=="", temp1$GenesOfInterest, paste(temp1$GenesOfInterest, temp1$Cosmic)))
+# temp1$Gene=gsub(paste0(data$TreatmentKeywords), "", temp1$Gene)
+# temp1$Gene=gsub(" ", "", temp1$Gene)
+temp1$Gene[which(temp1$Gene=="")]=NA
 temp1$Col=ifelse((temp1$Cosmic!=""&temp1$GenesOfInterest!=""),"purple", ifelse(temp1$Cosmic!="", "red", "blue") )
 
-temp1$Gene=ifelse(temp1$GenesOfInterest=="", temp1$Cosmic, temp1$GenesOfInterest)
-temp1$Gene=gsub(paste0(data$TreatmentKeywords), "", temp1$Gene)
-temp1$Gene=gsub(" ", "", temp1$Gene)
-temp1$Gene[which(temp1$Gene=="")]=NA
 
-temp2=unique(temp1[ ,-c(4:5)])
+temp1$SV_chrom=factor(temp1$SV_chrom, levels=c(1:22, "X", "Y"))
+temp1=temp1[order(temp1$SV_chrom,temp1$SV_start), ]
 
-temp2$SV_chrom=factor(temp2$SV_chrom, levels=c(1:22, "X", "Y"))
-temp2=temp2[order(temp2$SV_chrom,temp2$SV_start), ]
-
-tempx=by(temp2$CN, temp2$Gene, mean)
+tempx=by(temp1$CN, temp1$Gene, mean)
 tempx2=stack(round(tempx))
 
-temp2=temp2[-which(duplicated(temp2[ ,c(4:5)])), ]
+temp2=temp1[-which(duplicated(temp1[ ,c(4:6)])), ]
 temp2$CN=(tempx2$values[ match(temp2$Gene, tempx2$ind)])
 temp2$CN[which(temp2$CN==2)]=1
 temp2$CN=factor(temp2$CN)
 temp2$Gene=factor(temp2$Gene, levels=temp2$Gene)
 
+
+temp2$CN=factor(temp2$CN, levels=c(0, 1, 3, 4))
+rm1=which(!is.na(temp2$CN))
+temp2=temp2[rm1, ]
+
 colB=temp2$Col
 
-ggplot(temp2, aes(x=Gene, y=1, fill=CN))+geom_tile()+  theme(axis.text.x = element_blank(), axis.ticks.x = element_blank())+scale_fill_manual(values = c("#3182bd", "#9ecae1", "#ee969","#de2d26", "white"))+expand_limits(y = 0.25)+geom_text(aes(colour = colB, label = Gene), y = 0.35, angle=90)+facet_grid(~SV_chrom, space="free", scales="free")+scale_colour_manual(values = c("blue", "purple", "red"), guide = F)
+ggplot(temp2, aes(x=Gene, y=1, fill=CN))+geom_tile()+  theme(axis.text.x = element_blank(), axis.ticks.x = element_blank())+scale_fill_manual(values = c("#3182bd", "#9ecae1", "#fc9272","#de2d26", "white"))+expand_limits(y = 0.25)+geom_text(aes(colour = colB, label = Gene), y = 0.35, angle=90)+facet_grid(~SV_chrom, space="free", scales="free")+scale_colour_manual(values = c("blue", "purple", "red"), guide = F)
 ```
 
 **Multi-gene variants**
@@ -153,9 +156,7 @@ Scolnames=c("SV_chrom", "SV_start", "SV_end", "CN", "Pheno", "ACMG_class", "Loca
 T1=AnnotCNV[lx1, Scolnames]
 colnames(T1)=c("CHROM", "START", "END", "CN", "Pheno", "ACMG_class","Location", "Pop.Freq", "Haploinsufficiency", "Triplosensitivity", "OMIM", "OMIM_morbid", "Reg.Element.Genes", "Nearest.Splice.Site.bp", "TAD", "BenignSource", "PathogenicSource", "gnomad.pLI", "exac.pLI", "GenesOfInterest", "Cosmic", "Pathways", "GTex", "Gene_name")
 
-rmIdx=grep("full", T1$ACMG_class)
-
-test1=sapply(strsplit(T1$Gene_name, ","), function(x) length(x))
+test1=sapply(strsplit(T1$Gene_name, ";"), function(x) length(x))
 rmidx=which(test1>1)
 T1a=T1[rmidx, ]
 MGexist=ifelse(nrow(T1a)>0, T, F)
@@ -164,7 +165,7 @@ MGexist=ifelse(nrow(T1a)>0, T, F)
 `r ifelse(MGexist==F, print('There are no CNVs spanning multiple genes'), print('The CNVs spanning multiple genes are shown below:'))`
 
 ```{r, eval=MGexist}
-DT::datatable(T1a, rownames=F, filter = 'top', class='cell-border stripe',extensions="Buttons", options=list(dom="Bfrtip",scoller = TRUE, pageLength = 5,  buttons=c(I('colvis'),'csv', 'excel'), columnDefs = list(list(visible=FALSE, targets=c(4,5,10)))))
+DT::datatable(T1a, rownames=F, filter = 'top', class='cell-border stripe',extensions="Buttons", options=list(dom="Bfrtip",scoller = TRUE, pageLength = 5,  buttons=c(I('colvis'),'csv', 'excel'), columnDefs = list(list(visible=FALSE, targets=c(4,5,6,10,12,14,22,23)))))
 
 ```
 

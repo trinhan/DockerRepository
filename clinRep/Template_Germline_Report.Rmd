@@ -107,8 +107,9 @@ isX=ifelse(PloidyVals[23,2]==2 & PloidyVals[24,2]==0, "female", ifelse(PloidyVal
 
 `r ifelse(CallPloidy==T & length(whichDiff)==0, sprintf('All autosomes have normal ploidy and the patient is %s', isX), sprintf("Chromosome %s has aberrant ploidy and the patient is %s", whichDiff, isX))`
 
-```{r, eval=CallPloidy}
-DT::datatable(PloidyVals, rownames = F, options=list(pageLength = 24))
+```{r, eval=CallPloidy, fig.width= 6, fig.height=7}
+barplot(PloidyVals[24:1 ,2], names.arg = PloidyVals[ 24:1,1], horiz=T, las=2, xlab = "Counts")
+#DT::datatable(PloidyVals, rownames = F, options=list(pageLength = 24))
 ```
 
 ## Overivew

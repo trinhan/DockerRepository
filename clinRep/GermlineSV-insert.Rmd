@@ -71,7 +71,8 @@ invMat2=tryCatch({CreateGRangesData(AnnotSV[c(inv, bnd)], "Green", 500)}, error=
 
 #lx1=which((AnnotSV$GenesOfInterest!=""| AnnotSV$Cosmic!="") & AnnotSV$ACMG_class>=3 & (AnnotSV$AF<=0.1 | is.na(AnnotSV$AF)) & AnnotSV$MeanVAF>0.25)
 
-UniqueGenesA=unique(unlist(strsplit(AnnotSV$GenesOfInterest, ",")))
+UniqueGenesA=unique(unlist(strsplit(AnnotSV$GenesOfInterest, " ")))
+UniqueGenesA=unique(unlist(strsplit(UniqueGenesA, ",")))
 UniqueGenesB=unique(unlist(strsplit(AnnotSV$Cosmic, ", ")))
 Tx3=na.omit(unique(c(UniqueGenesA, UniqueGenesB)))
 Tx3=setdiff(Tx3, data$TreatmentKeywords)
@@ -149,7 +150,7 @@ colB=temp2$Col
 ggplot(temp2, aes(x=Gene, y=1, fill=SV_type))+geom_tile()+  theme(axis.text.x = element_blank(), axis.ticks.x = element_blank())+scale_fill_manual(values = c("#3182bd", "#9ecae1", "#de2d26"))+expand_limits(y = 0.25)+geom_text(aes(colour = colB, label = Gene), y = 0.35, angle=90)+facet_grid(~SV_chrom, space="free", scales="free")+scale_colour_manual(values = c("blue", "purple", "red"), guide = F)
 ```
 
-** Multi-gene spanning SVs **
+**Multi-gene spanning SVs**
 
 ```{r}
 lx1=which((AnnotSV$GenesOfInterest!=""| AnnotSV$Cosmic!="") & AnnotSV$ACMG_class>=3 & (AnnotSV$AF<=0.1 | is.na(AnnotSV$AF)) & AnnotSV$MeanVAF>0.25)

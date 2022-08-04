@@ -205,15 +205,18 @@ opts <- docopt(doc)
   Keep4=Test1[ex1, ]%>%select(!c("AF_max", "ConsB"))
 
   # Refine this to include CADD high score if it does not affect a coding region
-  lx1=which(is.na(Keep4$HGVSp))
+  #lx1=which(is.na(Keep4$HGVSp))
   if (opts$caddscore>0){
     print('keep variants with high cadd cutoff')
-    rmT=which(Keep4$ClinVar.Sig!="Benign" | Keep4$CADD>as.numeric(opts$caddscore))
+    select2=which(Keep4$CADD>as.numeric(opts$caddscore))
   } else{
     print('keep variants with high cadd cutoff')
-    rmT=which(Keep4$ClinVar.Sig!="Benign" & Keep4$ConsB==1)
-  }
-  Keep4=Keep4[setdiff(rmT, lx1),]
+    select2=which(Keep4$ConsB==1)
+   }
+  select3=unique(unlist(sapply(c("pathogenic", "risk_factor", "drug_response"), function(x) grep(x, Keep4$ClinSig))))
+  select4=grep("damaging", Keep4$PolyPhen)
+  rmT=unique(c(select2, select3, select4))
+  Keep4=Keep4[rmT, ]
   
     
   ## Summary of variants which fits the cadd cutoffs, gnomad AF cutoffs and is in a coding region

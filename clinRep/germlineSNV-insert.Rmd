@@ -16,12 +16,6 @@ kable(Table1, rownames = F, caption="Summary of the variants detected")
 
 #### TierA: Cancer Related
 
-The following variants have been listed within the following sources:
-
-* MSK's Oncokb Precision Oncology Database
-* COSMIC's Cancer Gene Census (CGC): Tiers include Hallmark, Tier 1 & Tier 2 
-* COSMIC's Cancer Mutation Census (Tiers 1-3) 
-
 ```{r, eval=T}
 D2=read.delim(data$SNVcancerRes)
 
@@ -30,29 +24,42 @@ D2=read.delim(data$SNVcancerRes)
 selectNames=c("SYMBOL","rsID", "HGVSp",	"EXON",	"Consequence","ProteinDomain",
               "Cancer.Disease.Freq","ClinVar.Disease", "HallmarkPathways","UserGeneList","CMC.Oncogene","gnomAD.AF","VAF",	 "ClinVar.Sig","CADD", "PolyPhen", "Genotype", "Depth", "CHROM",	"POS","HGVSc",  "MGRB.AF","CancerGeneCensus.Tier","CancerMutationCensus.Tier" )
 midx=match(selectNames, colnames(D2))
+```
+
+The following variants have been listed within the following sources:
+
+* MSK's Oncokb Precision Oncology Database
+* COSMIC's Cancer Gene Census (CGC): Tiers include Hallmark, Tier 1 & Tier 2 
+* COSMIC's Cancer Mutation Census (Tiers 1-3) 
+* These genes include: `r sort(unique(D2$SYMBOL))`
+
+```{r}
 DT::datatable(D2[ , na.omit(midx)], rownames=F, filter = 'top', class='cell-border stripe',extensions="Buttons", options=list(dom="Bfrtip",scoller = TRUE, pageLength = 5,  buttons=c(I('colvis'),'csv', 'excel'), columnDefs = list(list(visible=FALSE, targets=c(13: length(na.omit(midx))-1)))))
 ```
 
 
 #### Tier B: Biologically relevant pathways
 
-The following variants have been implicated in pathways related to `r data$TreatmentKeywords`.
-Additionally, variants need to either have a documented ClinVar Significance, or have a CADD score greater than 20
 
 ```{r, eval=T}
 D3=read.delim(data$SNVHallmark)
 
 midx=match(selectNames, colnames(D3))
+```
+
+The following variants:
+
+* Have been implicated in pathways related to `r data$TreatmentKeywords`.
+* Have a documented ClinVar Significance OR potentially damaging Polyphen Significance OR CADD score greater than 20
+* Impact a protein coding region
+* These genes include: `r sort(unique(D3$SYMBOL))`
+
+```{r}
 DT::datatable(D3[ ,na.omit(midx)], rownames=F, filter = 'top', class='cell-border stripe',extensions="Buttons", options=list(dom="Bfrtip",scoller = TRUE, pageLength = 10,  buttons=c(I('colvis'),'csv', 'excel'), columnDefs = list(list(visible=FALSE, targets=c(11: length(na.omit(midx))-1)))))
 
 ```
 
 #### Tier C: Variants with Clinvar protective or drug response annotations
-
-The following variants annotated with clinvar have reported the following:
-
-* a potential protective effect
-* can influence drug response
 
 ```{r, eval=T}
 D4=read.delim(data$SNVdrugresponse)
@@ -61,37 +68,51 @@ selectNames=c("SYMBOL","rsID", "HGVSp",	"EXON",	"Consequence","ProteinDomain","C
               "Cancer.Disease.Freq","ClinVar.Disease", "HallmarkPathways","UserGeneList", "VAF",  "ClinVar.Sig","Genotype", "Depth", "CHROM",	"POS","HGVSc","CancerMutationCensus.Tier" , "MGRB.AF" )
 
 midx=match(selectNames, colnames(D4))
+```
 
+The following variants annotated with clinvar have reported the following:
+
+* a potential protective effect
+* can influence drug response
+* These genes include: `r sort(unique(D4$SYMBOL))`
+
+```{r}
 DT::datatable(D4[ , na.omit(midx)], rownames=F, filter = 'top', class='cell-border stripe',extensions="Buttons", options=list(dom="Bfrtip",scoller = TRUE, pageLength = 5,  buttons=c(I('colvis'),'csv', 'excel'), columnDefs = list(list(visible=FALSE, targets=c(12:length(na.omit(midx))-1)))))
 ```
 
 #### Tier D: Variants of unknown significance
+
+```{r, eval=T}
+D5=read.delim(data$SNVVUS)
+
+midx=match(selectNames, colnames(D5))
+```
 
 The following variants:
 
 * have a predicted CADD for for deleteriousness of 20+ (Top 1\% of deleteriousness)
 * are present in the gnomAD database at an population frequency of 0.1 or less
 * affect an defined functional domain of a protein
+* These genes include: `r sort(unique(D4$SYMBOL))`
 
-```{r, eval=T}
-D5=read.delim(data$SNVVUS)
-
-midx=match(selectNames, colnames(D5))
-
+```{r}
 DT::datatable(D5[ ,na.omit(midx)], rownames=F, filter = 'top', class='cell-border stripe',extensions="Buttons", options=list(dom="Bfrtip",scoller = TRUE, pageLength = 5,  buttons=c(I('colvis'),'csv', 'excel'), columnDefs = list(list(visible=FALSE, targets=c(12:length(na.omit(midx))-1)))))
 ```
 
 #### Tier E: ACMG variants
 
+```{r, eval=T}
+D6=read.delim(data$SNVACMG)
+midx=match(selectNames, colnames(D6))
+```
+
 The following variants:
 
 * have a variant in a ACMG listed gene 
 * variant is predicted to be pathogenic or likely pathogenic by ACMG
+* These genes include: `r sort(unique(D6$SYMBOL))`
 
-```{r, eval=T}
-D6=read.delim(data$SNVACMG)
-midx=match(selectNames, colnames(D6))
-
+```{r}
 DT::datatable(D6[ ,na.omit(midx)], rownames=F, filter = 'top', class='cell-border stripe',extensions="Buttons", options=list(dom="Bfrtip",scoller = TRUE, pageLength = 5,  buttons=c(I('colvis'),'csv', 'excel'), columnDefs = list(list(visible=FALSE, targets=c(12:length(na.omit(midx))-1)))))
 ```
 
