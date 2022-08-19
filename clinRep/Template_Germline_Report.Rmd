@@ -58,7 +58,8 @@ load("/annotFiles/ensembl_granges_genes_290722.RData")
 ### Sample Information
  
 ```{r, warning=FALSE}
-clinSum=unlist(data[1:9])
+x1=which(names(data)=="SNVsummary")
+clinSum=unlist(data[1:(x1-1)])
 kable((clinSum), col.names = c("Patient Information"))
 ```
 
