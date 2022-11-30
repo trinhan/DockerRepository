@@ -1,0 +1,11 @@
+
+The following CNV regions are filtered to retain those with a gain (log2FC > 0.6) or loss (log2FC < -1). Regions are annotated to call known caner related genes
+
+```{r}
+
+cNames=c("Chr", "Start", "End", "No.Probes", "log2 ratio", "CALL", "call", "Genes")
+colnames(A1)=cNames
+DT::datatable(A1[xa, -6], rownames=F, class='cell-border stripe',
+          extensions="Buttons", options=list(dom="Bfrtip",scroller=T,pageLength = 15, buttons=c('csv', 'excel')))
+
+```

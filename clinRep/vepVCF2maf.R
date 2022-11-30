@@ -1,11 +1,12 @@
 #!/usr/bin/Rscript
-"usage: \n vepVCF2maf4Oncokb.R [--vcffile=<file> --outputfile=<string> --sampleName=<string> --canonical=<boolean> --runMode=<string> --AAlist=<file>]
+"usage: \n vepVCF2maf4Oncokb.R [--vcffile=<file> --outputfile=<string> --sampleName=<string> --canonical=<boolean> --runMode=<string> --AAlist=<file> --minCallers=<string>]
 \n options:\n --vcffile=<file> vcffile that has been annotated using vep.
 \n --outputfile=<string> output directory
 \n --sampleName=<string> If sample list has more than 1 sample, include a csv file with all identifiers, otherwise set as 'NULL' [default: NULL]
 \n --canonical=<boolean> Need to separate out canonical values if not run [default: F]
 \n --runMode=<string> Tumour or germline mode?
-\n --AAlist=<file> File containing aminoacid 3 letter and 1 letter conversion " -> doc
+\n --AAlist=<file> File containing aminoacid 3 letter and 1 letter conversion 
+" -> doc
 
 library("docopt")
 opts <- docopt(doc)
@@ -17,6 +18,7 @@ opts <- docopt(doc)
 ## --domains --af_gnomad --check_existing --fields CANONICAL,Consequence,Codons,Amino_acids,Gene,SYMBOL,Feature,EXON,PolyPhen,SIFT,Protein_position,BIOTYPE,Feature_type,cDNA_position,CDS_position,Existing_variation,DISTANCE,STRAND,CLIN_SIG,LoF_flags,LoF_filter,LoF,RadialSVM_score,RadialSVM_pred,LR_score,LR_pred,CADD_raw,CADD_phred,Reliability_index,DOMAINS,HGVSc,HGVSp,gnomAD_AF,PHENO
 
 vcf2MAF=function(vcffile,outputfile,sampleName, canonical=F, runMode="Germline", AAlist){
+  print('Running vep VCF to MAF')
   print(opts)
   library(vcfR)
   library(matrixStats)
@@ -27,6 +29,10 @@ vcf2MAF=function(vcffile,outputfile,sampleName, canonical=F, runMode="Germline",
   dp1 <- extract.gt(inputFile, element='DP', as.numeric=TRUE)
   # if QUAL =0 # get allelic depth: reference
   ad1 <- extract.gt(inputFile, element='AD', as.numeric=TRUE)
+  ad2 <- extract.gt(inputFile,  element='AD')
+  ad3 <- matrix(sapply(strsplit(ad2, ","), function(x) as.numeric(x[2])), nrow=nrow(ad2))
+  
+  dp2=ad1+ad3
   af1=extract.gt(inputFile, element='AF', as.numeric=TRUE)
   adv <- dp1-ad1
   #vaf=adv/dp
@@ -59,12 +65,12 @@ vcf2MAF=function(vcffile,outputfile,sampleName, canonical=F, runMode="Germline",
   VAFd=cbind(adv, dp, vaf, gt)
   
   ## get the colnames for the CSQ upload
-  print('Get CSQ colnames')
+
   a1=inputFile@meta
   x1=a1[grep("CSQ", a1)]
   SNames=unlist(strsplit( substr(x1, regexpr(  "Format: *",x1)+8, nchar(x1)-2), "\\|"))
   LxB=nrow(vcfFix)
-  print(LxB)
+  sprintf('Get CSQ colnames... There are %s variants', LxB)
   seqlast <- function (from, to, by) 
   {
     vec <- do.call(what = seq, args = list(from, to, by))
@@ -76,7 +82,6 @@ vcf2MAF=function(vcffile,outputfile,sampleName, canonical=F, runMode="Germline",
   }
   ## process 50000 entries at a time
   Ntries <- seqlast(from=0, to=LxB, by = 50000)
-  print(Ntries)
   AAlist=read.csv(opts$AAlist)
   print('Create new data table')
   
@@ -84,7 +89,7 @@ vcf2MAF=function(vcffile,outputfile,sampleName, canonical=F, runMode="Germline",
     ann <- extract.info(inputFile[(Ntries[i]+1):Ntries[i+1]], element='CSQ', as.numeric=F)
     annsplit=sapply(ann, function(x) strsplit(x, "\\||,"))
     ncounts=sapply(annsplit, length)
-  if (canonical==T ){
+  if (canonical){
     print('canonical genes indicated')
     lxa=which(SNames=="CANONICAL")
     lxb=length(SNames)-lxa
@@ -133,7 +138,7 @@ vcf2MAF=function(vcffile,outputfile,sampleName, canonical=F, runMode="Germline",
    Tx=AllData[ ,-match(c("HGVSc", "HGVSp"), colnames(AllData))]
    AllData=cbind(Tx,HGVSp_Short, HGVSp_ENS, HGVSp,HGVSc_ENS, HGVSc)
    colnames(AllData)[which(colnames(AllData)=="SYMBOL")]="Hugo_Symbol"
-   print('write to file')
+   sprintf('write to file. Table dimensions is %s rows by %s columns', nrow(AllData), ncol(AllData))
    write.table(AllData, file=outputfile, sep="\t", row.names=F, quote=F, append = T,
                col.names=!file.exists(outputfile))
 }

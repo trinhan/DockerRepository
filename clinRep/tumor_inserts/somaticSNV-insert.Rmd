@@ -1,0 +1,91 @@
+#### Summary of variants detected
+
+```{r, eval=T, message=F}
+D1=read.delim(data$SNVsummary)
+D2=read.delim(data$SNVcancerRes)
+D3=read.delim(data$SNVHallmark)
+D4=read.delim(data$SNVdrugresponse)
+D5=read.delim(data$SNVVUS)
+D6=read.delim(data$SNVACMG)
+
+Variant.Type=c("Total coding non-synonymous variants", "Total in Cancer Gene Census",
+             "Total associated with drug response", "Total in pathways of interest",
+             "Total other pathogenic VUS", "Total ACMG variants")
+# write name to variable so we can evaluate intersections
+N=c( D1, nrow(D2), nrow(D3), nrow(D4), nrow(D5), nrow(D6))
+Table1=cbind(Variant.Type,N)
+
+kable(Table1, row.names = F)
+
+# write name to variable so we can evaluate intersections
+
+Table1=cbind(c("Total coding load", "Total coding (omit HLA)","No. Actionable", "No. Biologically Relevant", "No. VUS", "TMB (mut/Mb)"), 
+             Xout[[1]])
+kable(Table1, rownames = F)
+```
+
+#### Potentially Actionable
+
+The genes listed below are known driver events in cancer and therapies have been developed to target these genes.
+
+```{r, eval=T}
+
+SearchTerms=c("Hugo_Symbol", "HGVSg","HGVSp","cadd","t_VAF","MUTATION_EFFECT","Oncokb","DrugBank", "CGC_Cancer.Syndrome")
+
+cNames=c("Gene",  "Mutation ", "Mutation (AA)","CADD", "Tumor VAF", "Effect", "OncoKB", "DrugBank", "GeneticSyndrome")
+BioVar=Xout$Func[ , (match(SearchTerms, colnames(Xout$Func)))]
+colnames(BioVar)=cNames
+
+if (nrow(BioVar)>0){
+BioVar$TCGAlink=paste0("<a href='", sprintf("https://www.cbioportal.org/results/mutations?case_set_id=all&gene_list=%s&cancer_study_list=5c8a7d55e4b046111fee2296", BioVar$Gene), "' target='_blank'>", BioVar$Gene, "</a>")
+BioVar$Onockb=paste0("<a href='https://www.oncokb.org/gene/", BioVar$Gene, "' target='_blank'>", BioVar$Gene, "</a>")
+
+} 
+
+DT::datatable(BioVar, escape=F,rownames=F, class='cell-border stripe',
+          extensions="Buttons", options=list(dom="Bfrtip",scoller = TRUE,  buttons=c('csv', 'excel')))
+
+```
+
+#### Biologically relevant
+
+There is a substantial body of evidence supporting the following genes in cancer, and these mutations are predicted to have a cadd score > 20
+
+```{r, eval=T}
+SearchTerms=c("Hugo_Symbol", "HGVSg", "HGVSp","cadd","t_VAF","Oncokb","DrugBank", "CGC_Cancer.Syndrome")
+
+cNames=c("Gene","Mutation", "Mutation (AA)", "CADD", "Tumor VAF", "OncoKB", "DrugBank", "GeneticSyndrome")
+
+
+BioVar=Xout$Prob[ , (match(SearchTerms, colnames(Xout$Prob)))]
+if (nrow(BioVar)>0){
+colnames(BioVar)=cNames
+BioVar$TCGAlink=paste0("<a href='", sprintf("https://www.cbioportal.org/results/mutations?case_set_id=all&gene_list=%s&cancer_study_list=5c8a7d55e4b046111fee2296", BioVar$Gene), "' target='_blank'>", BioVar$Gene, "</a>")
+BioVar$Onockb=paste0("<a href='https://www.oncokb.org/gene/", BioVar$Gene, "' target='_blank'>", BioVar$Gene, "</a>")
+}
+DT::datatable(BioVar, escape=F, rownames=F, class='cell-border stripe',
+          extensions="Buttons", options=list(dom="Bfrtip",scoller = TRUE,  buttons=c('csv', 'excel')))
+```
+
+#### Variants of unknown significance
+
+The following genes are predicted to have a deleterious effect (cadd score>20), but uncertain involvement in cancer.
+
+
+```{r}
+BioVar=Xout$VUS[ , (match(SearchTerms, colnames(Xout$VUS)))]
+colnames(BioVar)=cNames
+BioVar$TCGAlink=paste0("<a href='", sprintf("https://www.cbioportal.org/results/mutations?case_set_id=all&gene_list=%s&cancer_study_list=5c8a7d55e4b046111fee2296", BioVar$Gene), "' target='_blank'>", BioVar$Gene, "</a>")
+DT::datatable(BioVar, rownames=F,escape=F, class='cell-border stripe',
+          extensions="Buttons", options=list(dom="Bfrtip",scoller = TRUE, pageLength = 15, buttons=c('csv', 'excel')))
+
+```
+
+#### Other Variants
+
+```{r}
+BioVar=Xout$Other[ , (match(SearchTerms, colnames(Xout$Other)))]
+colnames(BioVar)=cNames
+DT::datatable(BioVar, rownames=F, class='cell-border stripe',
+          extensions="Buttons", options=list(dom="Bfrtip",scoller = TRUE,  buttons=c('csv', 'excel')))
+```

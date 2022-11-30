@@ -12,15 +12,16 @@
 library("docopt", quietly = T)
 opts <- docopt(doc)
 
-  library(data.table, quietly = T)
-  library(GSEABase, quietly = T)
- library(dplyr, quietly = T)
+suppressMessages(library(data.table, quietly = T))
+suppressMessages(library(GSEABase, quietly = T))
+suppressMessages(library(dplyr, quietly = T))
   
-  print('reading in maffile')
+ 
   
   AllData=fread(opts$maffile, sep="\t", stringsAsFactors = F, select=c("Hugo_Symbol",  
                           "CHROM","POS", "REF", "ALT", "HGVSp_Short","HGVSc", "DOMAINS"))
-  print('annotate with MSigDB')
+  sprintf('Running DBAnnotations...\n reading in maffile...\n Table dimensions %s rows by %s col', nrow(AllData), ncol(AllData))
+  print('annotate with MSigDB..')
 
   PathInH=getGmt(con=opts$MSigDB, geneIdType=SymbolIdentifier(),
                  collectionType=BroadCollection(category="h"))
@@ -35,6 +36,7 @@ opts <- docopt(doc)
   Nm2=match(AllData$Hugo_Symbol, GS)
   AllData$HallmarkPathways=Tx2[Nm2]
   
+  sprintf('%s Genes are now annotated with MSigDB pathway', length(Nm2))
   aax1=paste(AllData$Hugo_Symbol, AllData$POS)
   ax1=paste(AllData$Hugo_Symbol, AllData$HGVSp_Short)
   rm(PathInH)
@@ -87,7 +89,7 @@ opts <- docopt(doc)
   
   AllData=cbind(AllData, pfamid=n2pfam, pfam=pfamO, pirsf=pirsfO, pirsfid=n2)
  ## write.table(AllData, file=opts$outputfile, sep="\t", row.names=F, quote=F)
-  print('write to file')
+  sprintf('write to file. Table dimensions %s row by %s columns', nrow(AllData), ncol(AllData))
   write.table(AllData[ ,-c(1:4)], file=opts$outputfile, sep="\t", quote=F,row.names = F)
 #}
 
