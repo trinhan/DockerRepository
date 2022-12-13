@@ -48,10 +48,7 @@ suppressMessages(library(matrixStats, quietly = T))
   
   ## Extract the genotype and copy number
   sampleName=opts$outputName ##data$sampleIn 
-  # Figure out how many samples are present
-  Nsamp=unlist(strsplit(InputData[ 1,"Samples_ID"], ","))
-  Nsamp2=Nsamp[length(Nsamp)]
-  temp=strsplit(as.character(InputData[ ,match(Nsamp2, colnames(InputData)) ]), ":")
+  temp=strsplit(as.character(InputData[ ,15 ]), ":")
   
   if ( opts$germline ){
     GT=sapply(temp, function(x) x[1])

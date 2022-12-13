@@ -1,0 +1,121 @@
+#### Variant Summary
+
+Summary of variants detected
+
+```{r, eval=T, message=F}
+D1=read.delim(data$SNVsummary)
+D2=read.delim(data$SNVcancerRes)
+D3=read.delim(data$SNVHallmark)
+D4=read.delim(data$SNVdrugresponse)
+D5=read.delim(data$SNVVUS)
+D6=read.delim(data$SNVACMG)
+
+Variant.Type=c("Total coding non-synonymous variants", "Total in Cancer Gene Census",
+             "Total associated with drug response", "Total in pathways of interest",
+             "Total other pathogenic VUS", "Total ACMG variants")
+# write name to variable so we can evaluate intersections
+N=c( D1, nrow(D2), nrow(D3), nrow(D4), nrow(D5), nrow(D6))
+Table1=cbind(Variant.Type,N)
+
+
+kable(Table1, row.names = F)
+```
+
+#### TierA: Cancer Related
+
+```{r, eval=T}
+selectNames=c("SYMBOL","rsID", "HGVSp",	"EXON",	"Consequence","ProteinDomain",
+              "CMC.Oncogene","CADD", "PolyPhen","gnomAD.AF","HallmarkPathways",
+              "Cancer.Disease.Freq","ClinVar.Disease","CancerGeneCensus.Tier", "UserGeneList","VAF",	 "ClinVar.Sig", "Genotype", "Depth", "CHROM",	"POS","HGVSc", "MGRB.AF","CancerMutationCensus.Tier" )
+midx=match(selectNames, colnames(D2))
+```
+
+The following variants have been listed within the following sources:
+
+* MSK's Oncokb Precision Oncology Database
+* COSMIC's Cancer Gene Census (CGC): Tiers include Hallmark, Tier 1 & Tier 2 
+* COSMIC's Cancer Mutation Census (Tiers 1-3) 
+* Population Frequency Cutoff `r paramfile$TierAGnomad`
+* Variants only in coding regions `r paramfile$TierAOnlyCoding`
+* These genes include: `r sort(unique(D2$SYMBOL))`
+
+```{r}
+DT::datatable(D2[ , na.omit(midx)], rownames=F, filter = 'top', class='cell-border stripe',extensions="Buttons", options=list(dom="Bfrtip",scoller = TRUE, pageLength = 5,  buttons=c(I('colvis'),'csv', 'excel'), columnDefs = list(list(visible=FALSE, targets=c(13: length(na.omit(midx))-1)))))
+```
+
+
+#### Tier B: Biologically relevant pathways
+
+
+```{r, eval=T}
+midx=match(selectNames, colnames(D3))
+```
+
+The following variants:
+
+* Have been implicated in pathways related to `r data$TreatmentKeywords`
+* Population Frequency Cutoff `r paramfile$TierBGnomad`
+* CADD score threshold `r paramfile$TierBCadd`
+* Variants only in coding regions `r paramfile$TierBOnlyCoding`
+* Is non-benign according to ClinVar OR Polyphen `r paramfile$TierBPathogenic`
+* These genes include: `r sort(unique(D3$SYMBOL))`
+
+```{r}
+DT::datatable(D3[ ,na.omit(midx)], rownames=F, filter = 'top', class='cell-border stripe',extensions="Buttons", options=list(dom="Bfrtip",scoller = TRUE, pageLength = 10,  buttons=c(I('colvis'),'csv', 'excel'), columnDefs = list(list(visible=FALSE, targets=c(11: length(na.omit(midx))-1)))))
+
+```
+
+#### Tier C: Variants with Clinvar protective or drug response annotations
+
+```{r, eval=T}
+selectNames=c("SYMBOL","rsID", "HGVSp",	"EXON",	"Consequence","ProteinDomain","CADD", "PolyPhen", "gnomAD.AF", "CancerGeneCensus.Tier",
+              "Cancer.Disease.Freq","ClinVar.Disease", "HallmarkPathways","UserGeneList", "VAF",  "ClinVar.Sig","Genotype", "Depth", "CHROM",	"POS","HGVSc","CancerMutationCensus.Tier" , "MGRB.AF" )
+
+midx=match(selectNames, colnames(D4))
+```
+
+The following variants annotated with clinvar have reported the following:
+
+* a potential protective effect
+* can influence drug response
+* These genes include: `r sort(unique(D4$SYMBOL))`
+
+```{r}
+DT::datatable(D4[ , na.omit(midx)], rownames=F, filter = 'top', class='cell-border stripe',extensions="Buttons", options=list(dom="Bfrtip",scoller = TRUE, pageLength = 5,  buttons=c(I('colvis'),'csv', 'excel'), columnDefs = list(list(visible=FALSE, targets=c(12:length(na.omit(midx))-1)))))
+```
+
+#### Tier D: Variants of unknown significance
+
+```{r, eval=T}
+midx=match(selectNames, colnames(D5))
+```
+
+The following variants:
+
+* Population Frequency Cutoff `r paramfile$TierDGnomad`
+* CADD score threshold `r paramfile$TierDCadd`
+* Variants only in coding regions `r paramfile$TierDOnlyCoding`
+* Is non-benign according to ClinVar OR Polyphen `r paramfile$TierDPathogenic`
+* These genes include: `r sort(unique(D5$SYMBOL))`
+
+```{r}
+DT::datatable(D5[ ,na.omit(midx)], rownames=F, filter = 'top', class='cell-border stripe',extensions="Buttons", options=list(dom="Bfrtip",scoller = TRUE, pageLength = 5,  buttons=c(I('colvis'),'csv', 'excel'), columnDefs = list(list(visible=FALSE, targets=c(12:length(na.omit(midx))-1)))))
+```
+
+#### Tier E: ACMG variants
+
+```{r, eval=T}
+midx=match(selectNames, colnames(D6))
+```
+
+The following variants:
+
+* have a variant in a ACMG listed gene 
+* variant is predicted to be pathogenic or likely pathogenic by ClinVar
+* These genes include: `r sort(unique(D6$SYMBOL))`
+
+```{r}
+DT::datatable(D6[ ,na.omit(midx)], rownames=F, filter = 'top', class='cell-border stripe',extensions="Buttons", options=list(dom="Bfrtip",scoller = TRUE, pageLength = 5,  buttons=c(I('colvis'),'csv', 'excel'), columnDefs = list(list(visible=FALSE, targets=c(12:length(na.omit(midx))-1)))))
+```
+
+

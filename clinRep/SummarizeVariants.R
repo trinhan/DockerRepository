@@ -18,7 +18,7 @@ suppressMessages(library(dplyr, quietly = T))
   writeLines('Running SummarizeVariants \n Read in original File.. \n')
   mydnames=fread(opts$maffile, sep="\t", nrows=0)
   gnames=colnames(mydnames)[grep("nTot", colnames(mydnames))]
-  gnames2=colnames(mydnames)[grep("GT", colnames(mydnames))]
+  gnames2=colnames(mydnames)[grep("^GT", colnames(mydnames))]
   gnames3=colnames(mydnames)[grep("VAF", colnames(mydnames))]
   gnames4=colnames(mydnames)[grep("nAlt", colnames(mydnames))]
   
@@ -37,6 +37,8 @@ suppressMessages(library(dplyr, quietly = T))
   Test1=InputData[setdiff(1:nrow(InputData), rm1), 1:length(mNames) ]
   newNames=ColNames$V2[which(!is.na(midx))]
   colnames(Test1)=ColNames$V2[which(!is.na(midx))]
+  
+  newNames
   
   ## rename columns if they don't exist
   if ( !"ClinVar.Disease"%in%newNames & "ClinVar_Trait"%in%newNames){
@@ -84,8 +86,10 @@ suppressMessages(library(dplyr, quietly = T))
   HeaderV=strsplit(colnames(Nx),"\\.")
   HeaderV=sapply(HeaderV, function(x) x[3])
   Nx2=sapply(1:ncol(Nx), function(x) ifelse(!is.na(Nx[,x ]), HeaderV[x], NA))
+  Nx=data.matrix(Nx)
   Ncall=rowSums(sign(Nx), na.rm = T)
   Ncallers=sapply(1:nrow(Nx2), function(x) paste(na.omit(Nx2[x, ]),collapse=","))
+  head(Ncallers)
   Test1$Ncallers=Ncallers[setdiff(1:nrow(InputData), rm1)]
   Test1$Ncall=Ncall[setdiff(1:nrow(InputData), rm1)]
   Test1$Depth=AvDepth[setdiff(1:nrow(InputData), rm1)]
@@ -154,14 +158,13 @@ suppressMessages(library(dplyr, quietly = T))
   select4=grep("damaging", Test1$PolyPhen)
   length(select4)
   # select based on CADD
-  if (as.numeric(opts$caddscore>0)){
+  if (as.numeric(opts$caddscore)>0){
     select5=which(Test1$CADD> as.numeric(opts$caddscore))
     length(select5)
     sprintf("%s variants after CADD filter" ,length(select5))
     idx=unique(c(select3, select4, select5))
-    
   }else{
-    idx=unique(c(select3, select4, select5))
+    idx=unique(c(select3, select4))
   }
   
   Test1$Pathogenicity[idx]=1

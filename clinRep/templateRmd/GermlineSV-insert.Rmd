@@ -1,0 +1,17 @@
+
+```{r, eval=T, message=F}
+library(karyoploteR)
+dGenes=data$gSVAnnotSV
+AnnotSV2=read.delim(dGenes)
+## remove:  &
+AnnotSV=AnnotSV2[which(AnnotSV2$ACMG_class>=paramfile$AnnotSVACMGcutoff & AnnotSV2$MeanVAF>=paramfile$SVVAF), ]
+```
+
+```{r}
+ContAnnot=ifelse(nrow(AnnotSV>0), T, F)
+```
+
+`r ifelse(ContAnnot==F, print('There are no SVs detected for this sample!'), print(""))`
+
+```{r child = 'SV-Run.Rmd', eval=ContAnnot}
+```
