@@ -16,8 +16,9 @@ RUN R -e 'BiocManager::install("biomaRt")'
 
 RUN mkdir template
 COPY *.R /opt/
-COPY germline_inserts/*.Rmd /germline_inserts/
-COPY tumor_inserts/*.Rmd /tumor_inserts/
+# COPY germline_inserts/*.Rmd /germline_inserts/
+# COPY tumor_inserts/*.Rmd /tumor_inserts/
+COPY templateRmd/*.Rmd templates/
 COPY annotFiles/* /annotFiles/
 COPY data_scripts/* data_scripts
 

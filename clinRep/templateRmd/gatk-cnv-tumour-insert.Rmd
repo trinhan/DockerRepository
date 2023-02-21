@@ -1,14 +1,7 @@
-#### Overview of germline CNV data
-
-```{r, out.width = "400px"}
-knitr::include_graphics(data$CNVplot)
-```
+#### Overview of CNV data
 
 ```{r, eval=T, message=F}
 library(karyoploteR)
-dGenes=data$gCNVAnnotSV
-AnnotCNV=read.delim(dGenes)
-AnnotCNV2=AnnotCNV[which((AnnotCNV$Segment_Mean>=paramfile$CNVfcHigh | AnnotCNV$Segment_Mean<=paramfile$CNVfcLow) & AnnotCNV$genes!=""), ]
 ```
 
 ```{r}
@@ -22,7 +15,10 @@ homloss=which(AnnotCNV$Segment_Mean<=paramfile$CNVfcLow)
 gainMat <- GRanges(seqnames=AnnotCNV$chr[gain], ranges=IRanges(start=AnnotCNV$start[gain],
                       end=AnnotCNV$end[gain]), AF=AnnotCNV$Segment_Mean[gain])
 
-gainMat$AFcol=brewer.pal(5, "Reds")[cut(gainMat$AF, c(0,  2, 6, 20, 100))]
+if (length(gainMat)>0){
+  gainMat$AFcol=brewer.pal(5, "Reds")[cut(gainMat$AF, c(0,  2, 6, 20, 100))]
+}
+  
 #gainMat$AFcol=ifelse(gainMat$path!="", "#67000d", gainMat$AFcol)
 
 # hetlossMat <-  GRanges(seqnames=paste0("chr",AnnotCNV[hetloss, 2]), ranges=IRanges(start=AnnotCNV[hetloss, 3], end=AnnotCNV[hetloss, 4]), path=AnnotCNV$Psource[hetloss],AF=ifelse(is.na(AnnotCNV$AF[hetloss]), 1, 1-AnnotCNV$AF[hetloss]))
@@ -31,22 +27,20 @@ gainMat$AFcol=brewer.pal(5, "Reds")[cut(gainMat$AF, c(0,  2, 6, 20, 100))]
 
 homlossMat<- GRanges(seqnames=AnnotCNV$chr[homloss], ranges=IRanges(start=AnnotCNV$start[homloss],
                       end=AnnotCNV$end[homloss]), AF=AnnotCNV$Segment_Mean[homloss]) 
+
+if (length(homlossMat)>0){
  homlossMat$AFcol=brewer.pal(5, "Greens")[cut(homlossMat$AF, c(0,  -2, -6, -20,-100))]
+}
 
 
-
-UniqueGenesA=unique(unlist(strsplit(AnnotCNV$GenesOfInterest[c(gain, homloss)], " ")))
+UniqueGenesA=unique(unlist(strsplit(AnnotCNV2$GenesOfInterest[c(gain, homloss)], ",")))
 UniqueGenesA=gsub(",","", UniqueGenesA)
-UniqueGenesB=unique(unlist(strsplit(AnnotCNV$Cosmic[c(gain,homloss)], ", ")))
-UniqueGenesC=AnnotCNV$Gene_name[grep(data$TreatmentKeywords, AnnotCNV$GenesOfInterest)]
+UniqueGenesB=unique(unlist(strsplit(AnnotCNV2$Cosmic[c(gain,homloss)], ", ")))
+UniqueGenesC=AnnotCNV2$genes[grep(data$TreatmentKeywords, AnnotCNV2$GenesOfInterest)]
 Tx3=na.omit(unique(c(UniqueGenesA, UniqueGenesB, UniqueGenesC)))
 Tx3=setdiff(Tx3, data$TreatmentKeywords)
 
- if (length(Tx3)>1){
- #   ensembl <- useEnsembl(biomart="ensembl", dataset="hsapiens_gene_ensembl")
- #   genes <- toGRanges(getBM(attributes=c('chromosome_name', 'start_position', 'end_position', 'hgnc_symbol'),
- #                filters = 'hgnc_symbol', values =Tx3, mart = ensembl))
- #   seqlevelsStyle(genes) <- "UCSC"
+ if (length(Tx3)>0){
  genes=genesAll[na.omit(match(Tx3, genesAll$hgnc_symbol))]
   }
 
@@ -78,10 +72,14 @@ lx1splitLength=sapply(lx1split, length)
 
 lx1=which(lx1split%in%gList)
 
-## Visualise the genes of interest?
 temp1=AnnotCNV2[lx1, c("chr", "start", "end","Segment_Mean", "Segment_Call", "GenesOfInterest", "Cosmic", "genes", "GTex", "Pathways")]
 temp1$GenesOfInterest[grep(data$TreatmentKeywords, temp1$GenesOfInterest)]=temp1$genes[grep(data$TreatmentKeywords, temp1$GenesOfInterest)]
-#temp1=temp1[ ,-6]
+
+ContRun=ifelse(nrow(temp1)>1, T, F)
+```
+
+
+```{r, eval=ContRun}
 
 tx2=grep(",", temp1$GenesOfInterest)
 
@@ -130,15 +128,14 @@ temp1=temp1[order(temp1$chr,temp1$start), ]
 #  }
 
 
-temp1$CN=cut(temp1$Segment_Mean, breaks=c(-100,-12,-6 ,-2, 2, 6, 12, 100))
+temp1$CN=cut(temp1$Segment_Mean, breaks=c(-100,-12,-6,-3 ,paramfile$CNVfcLow, paramfile$CNVfcHigh, 3, 6, 12, 100))
 rm1=which(!is.na(temp1$CN))
 temp2=temp1[rm1, ]
 
 colB=temp2$Col
 
-ggplot(temp2, aes(x=genes, y=1, fill=CN))+geom_tile()+theme(axis.text.x = element_blank(), axis.ticks.x = element_blank())+scale_fill_manual(values = brewer.pal(7, "RdBu")[7:1])+expand_limits(y = 0.25)+geom_text(aes(colour = colB, label = genes), y = 0.35, angle=90)+facet_grid(~chr, space="free", scales="free")+scale_colour_manual(values = c("blue", "purple", "red"), guide = F)
+ggplot(temp2, aes(x=genes, y=1, fill=CN))+geom_tile()+theme(axis.text.x = element_blank(), axis.ticks.x = element_blank())+scale_fill_manual(values = brewer.pal(9, "RdBu")[9:1])+expand_limits(y = 0.25)+geom_text(aes(colour = colB, label = genes), y = 0.35, angle=90)+facet_grid(~chr, space="free", scales="free")+scale_colour_manual(values = c("blue", "purple", "red"), guide = F)
 ```
-
 
 
 #### Gene-specific Analysis

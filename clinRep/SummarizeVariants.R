@@ -1,8 +1,8 @@
 #!/usr/bin/Rscript
-"usage: \n SummarizeVariants.R [--maffile=<file> --outputname=<string> --germline=<boolean> --caddscore=<float> --gnomadcutoff=<float> --Ncallerthresh=<int> --AddList=<file> --columnEntries=<file>]
+"usage: \n SummarizeVariants.R [--maffile=<file> --outputname=<string> --caseName=<string> --caddscore=<float> --gnomadcutoff=<float> --Ncallerthresh=<int> --AddList=<file> --columnEntries=<file>]
 \n options:\n --maffile=<file> maffile that has been annotated using vep & oncokb.
 \n --outputname=<string> output string
-\n --germline=<boolean> [default: TRUE] is this in germline mode
+\n --caseName=<string> name of the case sample
 \n --caddscore=<float> [default: 20] score for cadd cut-off
 \n --gnomadcutoff=<float> [default: 0.1]
 \n --Ncallerthresh=<int> [default: 0] minimum number of callers required to output the variant
@@ -30,15 +30,12 @@ suppressMessages(library(dplyr, quietly = T))
   
   InputData=fread(opts$maffile, sep="\t", select=c(mNames, gnames, gnames2, gnames3, gnames4))
   #print(colnames(InputData))
-  
   #print(ColNames$V2[which(!is.na(midx))])
   
   rm1=c(grep("HLA", InputData$Hugo_Symbol))
   Test1=InputData[setdiff(1:nrow(InputData), rm1), 1:length(mNames) ]
   newNames=ColNames$V2[which(!is.na(midx))]
   colnames(Test1)=ColNames$V2[which(!is.na(midx))]
-  
-  newNames
   
   ## rename columns if they don't exist
   if ( !"ClinVar.Disease"%in%newNames & "ClinVar_Trait"%in%newNames){
@@ -78,37 +75,56 @@ suppressMessages(library(dplyr, quietly = T))
   Test1$ClinVar.Disease=gsub("not_provided", "", Test1$ClinVar.Disease)
   Test1$ClinVar.Disease=gsub("&", " ", Test1$ClinVar.Disease)
   Test1$ProteinDomain=ifelse(is.na(Test1$pfam), Test1$pirsf, Test1$pfam)
-  ##Test1=data.frame(Test1)
   print('Extract genotypes and callers')
   Nx=InputData %>% select(all_of(gnames))
   Nx=data.frame(Nx)
-  AvDepth=ceiling(rowMeans(Nx, na.rm=T))
-  HeaderV=strsplit(colnames(Nx),"\\.")
-  HeaderV=sapply(HeaderV, function(x) x[3])
-  Nx2=sapply(1:ncol(Nx), function(x) ifelse(!is.na(Nx[,x ]), HeaderV[x], NA))
   Nx=data.matrix(Nx)
-  Ncall=rowSums(sign(Nx), na.rm = T)
-  Ncallers=sapply(1:nrow(Nx2), function(x) paste(na.omit(Nx2[x, ]),collapse=","))
-  head(Ncallers)
-  Test1$Ncallers=Ncallers[setdiff(1:nrow(InputData), rm1)]
-  Test1$Ncall=Ncall[setdiff(1:nrow(InputData), rm1)]
-  Test1$Depth=AvDepth[setdiff(1:nrow(InputData), rm1)]
-
+  Nxb=Nx[ , grep(opts$caseName, colnames(Nx))]
+  
   ## Do the same thing with the GT
   GT=InputData %>% select(all_of(gnames2))
   GT=data.frame(GT)
+  GTb=GT[, grep(opts$caseName, colnames(GT))]
   ## collapse the genotypes if more than 1 column is found
   VAF=InputData %>% select(all_of(gnames3))
-  VAF2=rowMeans(VAF, na.rm = T)
-  Test1$VAF=round(VAF2[setdiff(1:nrow(InputData), rm1)], 3)
-  ax=ncol(GT)
-  if (ax>1){
-  m1=which(GT[ ,1]!=GT[,2])
-  Genotype=ifelse(!is.na(GT[ ,3]), GT[ ,3], ifelse(!is.na(GT[,2]), GT[,2], GT[,1]))
-  } else{
-  Genotype=GT[,1]  
+  VAF=data.frame(VAF)
+  VAFb=VAF[ , grep(opts$caseName, colnames(VAF)) ]
+
+  ## put a ctach for single callers
+  if (is.null(ncol(Nxb))){
+    print('note only 1 caller used')
+    HeaderV=strsplit(colnames(Nx),"\\.")
+    HeaderV=sapply(HeaderV, function(x) x[3])
+    Test1$Ncall=1
+    Test1$Ncallers=unlist(HeaderV)[1]
+    Test1$Depth=Nxb[setdiff(1:nrow(InputData), rm1)]
+    Test1$Genotype=GT[setdiff(1:nrow(InputData), rm1) ,grep(opts$caseName, colnames(GT))]
+    Test1$VAF=VAFb[setdiff(1:nrow(InputData), rm1) ]
+  }else{
+    HeaderV=strsplit(colnames(Nxb),"\\.")
+    HeaderV=sapply(HeaderV, function(x) x[3])
+    AvDepth=ceiling(rowMeans(Nxb, na.rm=T))
+    Nx2=sapply(1:ncol(Nxb), function(x) ifelse(!is.na(Nxb[,x ]), HeaderV[x], NA))
+  #Nx=data.matrix(Nx)
+    Ncall=rowSums(sign(Nxb), na.rm = T)
+    Ncallers=sapply(1:nrow(Nx2), function(x) paste(na.omit(Nx2[x, ]),collapse=","))
+    Test1$Ncallers=Ncallers[setdiff(1:nrow(InputData), rm1)]
+    Test1$Ncall=Ncall[setdiff(1:nrow(InputData), rm1)]
+    Test1$Depth=AvDepth[setdiff(1:nrow(InputData), rm1)]
+    VAFb=data.matrix(VAFb)
+    VAF2=rowMeans(VAFb, na.rm = T)
+    Test1$VAF=round(VAF2[setdiff(1:nrow(InputData), rm1)], 3)
+    head(Test1$VAF)
+    ax=ncol(GT)
+    if (ax>1){
+      m1=which(GT[ ,1]!=GT[,2])
+      Genotype=ifelse(!is.na(GT[ ,3]), GT[ ,3], ifelse(!is.na(GT[,2]), GT[,2], GT[,1]))
+    } else{
+      Genotype=GT[,1]  
+    }
+    Test1$Genotype=Genotype[setdiff(1:nrow(InputData), rm1)]
   }
-  Test1$Genotype=Genotype[setdiff(1:nrow(InputData), rm1)]
+
   ## delete this later
   ###est1$Genotype=ifelse(Test1$VAF>0.85, "1/1", "0/1")
   
@@ -168,7 +184,6 @@ suppressMessages(library(dplyr, quietly = T))
   }
   
   Test1$Pathogenicity[idx]=1
-  
   write.table(Test1, file=paste(opts$outputname, "variantsAll.maf", sep=""), sep = "\t", row.names = F,  quote = F)
     
   # print('Finding ACMG variants')
@@ -239,7 +254,6 @@ suppressMessages(library(dplyr, quietly = T))
   # select4=grep("damaging", Keep4$PolyPhen)
   # rmT=unique(c(select2, select3, select4))
   # Keep4=Keep4[rmT, ]
-
   
   print('generate coding list based on gnomad, Cons and Pathogenicity')
   nidx=which(Test1$AF_max<=as.numeric(opts$gnomadcutoff) & Test1$ConsB==1 & Test1$Pathogenicity==1)

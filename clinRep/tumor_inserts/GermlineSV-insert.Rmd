@@ -8,8 +8,15 @@ Summary of the number of variants:
 * Minimum number of supporting split reads `r paramfile$SVSRfilter`
 * Minimum number of supporting paired reads `r paramfile$SVPRfilter`
 
-```{r, message=FALSE}
-suppressMessages(library(karyoploteR))
+```{r, eval=T, message=F}
+library(karyoploteR)
+dGenes=data$gSVAnnotSV
+AnnotSV2=read.delim(dGenes)
+## remove:  &
+AnnotSV=AnnotSV2[which(AnnotSV2$ACMG_class>=paramfile$AnnotSVACMGcutoff & AnnotSV2$MeanVAF>=paramfile$SVVAF), ]
+```
+
+```{r}
 ## Filter out gains vs del
 gain=which(AnnotSV$SV_type=="DUP")
 homloss=which(AnnotSV$SV_type=="DEL")
@@ -37,7 +44,7 @@ Cosmic related genes or genes appearing in user defined list of interest are ind
 ```{r, fig.height=5, message=FALSE}
 CreateGRangesData=function(AnnotT, Col, Ncheck){
   gMat <- GRanges(seqnames=paste0("chr",AnnotT[ ,2]),ranges=IRanges(start=AnnotT[, 3], end=AnnotT[, 4]),names=AnnotT$AnnotSV_ID, path=AnnotT$Psource, AF=AnnotT$MeanVAF)
-  gMat$AFcol=brewer.pal(6, Col)[cut(gMat$AF, c(0,0.25, 0.5, 0.8, 0.9,  1))]
+  gMat$AFcol=brewer.pal(6, Col)[cut(gMat$AF, c(0,0.1,0.2, 0.5, 0.8, 0.9,  1))]
   tx1=as.matrix(dist(start(gMat)))
   tx2=as.matrix(dist(end(gMat)))
   ReviewThese=which(tx1<Ncheck & tx2<Ncheck, arr.ind=T)
@@ -148,15 +155,11 @@ ggplot(temp2, aes(x=Gene, y=1, fill=SV_type))+geom_tile()+  theme(axis.text.x = 
 
 **Multi-gene spanning SVs**
 
-
 ```{r}
 lx1=which((AnnotSV$GenesOfInterest!=""| AnnotSV$Cosmic!="") & AnnotSV$ACMG_class>=paramfile$AnnotSVACMGcutoff & (AnnotSV$AF<=paramfile$OverallGnomad | is.na(AnnotSV$AF)) & AnnotSV$MeanVAF>=paramfile$SVVAF)
-ScolnamesTable=cbind(c("SV_chrom", "SV_start", "SV_end","SV_type", "SV_length", "ACMG_class", "AF", "GT","MeanVAF","SRVAF", "GenesOfInterest","Cosmic", "Pathways","GTex", "Gene_name",  "Pheno"), c("CHROM", "START", "END", "TYPE", "SV_length", "ACMG", "Pop Freq", "GT", "VAF", "SR-VAF", "GenesOfInterest", "Cosmic", "Pathways", "GTex", "Gene Names", "CLinVar Phenotypes"))
-
-midx=match(ScolnamesTable[ ,1], colnames(AnnotSV))
-
-T1=AnnotSV[lx1, na.omit(midx)]
-colnames(T1)=ScolnamesTable[which(!is.na(midx)) ,2]
+Scolnames=c("SV_chrom", "SV_start", "SV_end","SV_type", "SV_length", "ACMG_class", "AF", "GT","MeanVAF","SRVAF", "GenesOfInterest","Cosmic", "Pathways","GTex", "Gene_name",  "Pheno")
+T1=AnnotSV[lx1, Scolnames]
+colnames(T1)=c("CHROM", "START", "END", "TYPE", "SV_length", "ACMG", "Pop Freq", "GT", "VAF", "SR-VAF", "GenesOfInterest", "Cosmic", "Pathways", "GTex", "Gene Names", "CLinVar Phenotypes")
 
 DT::datatable(T1, rownames=F, filter = 'top', class='cell-border stripe',extensions="Buttons", options=list(dom="Bfrtip",scoller = TRUE, pageLength = 5,  buttons=c(I('colvis'),'csv', 'excel'), columnDefs = list(list(visible=FALSE, targets=c(12:14)))))
 ```
@@ -169,7 +172,7 @@ The following fields are gene level annotations from AnnotSV: please see this do
 * OMIM: disease annotation from OMIM and morbidity from loss
 * pLI: intolerance to protein truncating variants from gnomad or ExAC [0 -1]: closer to 1 is predicted intolerance
 
-```{r,message=F}
+```{r, eval=T, message=F}
 dGenes=data$gSVsplitAnnotSV
 AnnotSVGenes=read.delim(dGenes)
 #AnnotSVGenes=read.delim("/Users/anntri/gitLibs/WDLPipelines/cromwell-executions/ClinicalReport/7ca9d50f-4214-4abb-9b14-f72cf3ea114f/call-CreateClinical/execution/ER095_MEL3N.SV.split.formated.tsv")

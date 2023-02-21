@@ -68,29 +68,78 @@ kable((clinSum), col.names = c("Patient Information"))
 
 ## Somatic Variants
 
-```{r child = 'germlineSNV-insert.Rmd'}
+```{r evaluate-SNVs-exist}
+# Check whether SNV data exists
+runSNVs=ifelse(is.null(data$SNVsummary), F, T)
+```
+
+`r ifelse(runSNVs==F, print('SNV data not available for this sample'), print(""))`
+
+```{r child = 'germlineSNV-insert.Rmd', eval=runSNVs}
 ```
 
 ## Copy Number Variants
 
-```{r, eval=T}
+```{r evaluate-CNVs-exist, eval=T}
 RunCV=ifelse(is.null(data$gCNVAnnotSV), F, T)
+EvalCNV=RunCV
+EvalCNVa=F
+EvalCNVb=F
 ```
 
 `r ifelse(RunCV==F, print('CNV analysis not available for this sample'), print(""))`
 
-```{r child = 'gatk-cnv-tumour-insert.Rmd', eval=RunCV}
+```{r}
+IncludePlot=ifelse(is.null(data$CNVplot), F, T)
 ```
+
+```{r, out.width = "800px", eval=IncludePlot}
+knitr::include_graphics(data$CNVplot)
+```
+
+```{r evaluate-CNV-length, eval=RunCV}
+AnnotCNV=read.delim(data$gCNVAnnotSV)
+tx1=match("Segment_Mean", colnames(AnnotCNV))
+
+if (is.na(tx1)){
+  AnnotCNV2=AnnotCNV[which(AnnotCNV$CN>=2^paramfile$CNVfcHigh & AnnotCNV$CN<=paramfile$CNVfcLow), ]
+}else {
+  AnnotCNV2=AnnotCNV[which((AnnotCNV$Segment_Mean>=paramfile$CNVfcHigh | AnnotCNV$Segment_Mean<=paramfile$CNVfcLow) & AnnotCNV$genes!=""), ]
+  }
+
+EvalCNVa=ifelse(nrow(AnnotCNV2)>0 && !is.na(tx1), T, F)
+EvalCNVb=ifelse(nrow(AnnotCNV2)>0 && is.na(tx1), T, F)
+```
+
+`r ifelse(EvalCNV==F, print('Analysis did not return any CNVs'), print(""))`
+
+```{r child = 'gatk-cnv-tumour-insert.Rmd', eval=EvalCNVa}
+```
+
+```{r child = 'gatk-cnv-germline-insert.Rmd', eval=EvalCNVb}
+```
+
 
 ## Structural Variants
 
-```{r}
+```{r evaluate-SVs-exist}
 RunSV=ifelse(is.null(data$gSVAnnotSV), F, T)
+EvalSV=RunSV
 ```
 
 `r ifelse(RunSV==F, print('SV analysis not available for this sample'), print("")) `
 
-```{r child = 'GermlineSV-insert.Rmd', eval=RunSV}
+```{r evaluate-SV-length, eval=RunSV}
+# Check whether the SV file has length >0
+AnnotSV2=read.delim(data$gSVAnnotSV)
+## remove:  &
+AnnotSV=AnnotSV2[which(AnnotSV2$ACMG_class>=paramfile$AnnotSVACMGcutoff & AnnotSV2$MeanVAF>=paramfile$SVVAF), ]
+EvalSV=ifelse(nrow(AnnotSV)>0, T, F)
+```
+
+`r ifelse(EvalSV==F, print('There are no SVs detected in this sample!'), print(""))`
+
+```{r child = 'SV-Run.Rmd', eval=EvalSV}
 ```
 
 ## Ploidy and Purity Summary
@@ -104,12 +153,14 @@ CallPloidy=ifelse(is.null(data$titanParams), F, T)
 ```{r, eval=CallPloidy}
 PloidyVals=read.delim(data$titanParams)
 printP=t(PloidyVals[ ,c("purity", "ploidy", "norm", "numClust","cellPrev", "loglik")])
+printP=round(printP, 2)
 kable(printP, col.names = c("Titan estimated Purity, Ploidy and subclones"))
 ```
 
-## Overivew
+
 
 ```{r child='overview-somatic.Rmd', eval=F}
+## Overview - coming soon
 ```
 
 

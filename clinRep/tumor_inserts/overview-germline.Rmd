@@ -90,6 +90,7 @@ Includes: `r sort(print(unique(Alldf1$SYMBOL)))`
 **Genes with both SVs and CNVs**
 
 ```{r}
+
 n1b=allCNVb[which(allCNVb$SYMBOL%in%a3), ]
 n2b=allSVb[which(allSVb$SYMBOL%in%a3), ]
 

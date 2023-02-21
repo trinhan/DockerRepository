@@ -1,0 +1,28 @@
+#### Overview of germline CNV data
+
+[`r data$CNVplot`](Overview of tumour copy number profile)
+
+```{r, eval=T, message=F}
+library(karyoploteR)
+dGenes=data$CNVfunco
+AnnotCNV=read.delim(dGenes)
+AnnotCNV2=AnnotCNV[which(AnnotCNV$Segment_Mean>=paramfile$CNVfcHigh | AnnotCNV$Segment_Mean<=paramfile$CNVfcLow), ]
+```
+
+#### Gene-specific Analysis
+
+Genes which are Cancer-COSMIC related, or have relevance to the pathway of interest (`r data$TreatmentKeywords`)
+
+TODO: create a script to load these CNVs and annotate with a COSMIC
+
+* <span style="color: red;"> Gains or insertions (top) </span>
+* <span style="color: blue;"> Deletions (Bottom) </span>
+* The following CNV regions are filtered to retain those with a gain (log2FC > 1) or loss (log2FC < -1) and a minimum number of probes:
+
+```{r}
+cNames=c("Chr", "Start", "End", "No.Probes", "log2 ratio", "CALL", "call", "Genes")
+colnames(A1)=cNames
+DT::datatable(A1[xa, -6], rownames=F, class='cell-border stripe',
+          extensions="Buttons", options=list(dom="Bfrtip",scroller=T,pageLength = 15, buttons=c('csv', 'excel')))
+
+```

@@ -33,6 +33,8 @@ suppressMessages(library(matrixStats, quietly = T))
     InputData=InputData[which(InputData$FILTER=="PASS"| InputData$FILTER=="."), ]
   }
   
+  if (nrow(InputData)>1){
+  
   print('Remove blacklisted regions from ENCODE')
   rmx=which((InputData$ENCODE_blacklist_characteristics_left==""|is.na(InputData$ENCODE_blacklist_characteristics_left)) & 
               (InputData$ENCODE_blacklist_characteristics_right==""|is.na(InputData$ENCODE_blacklist_characteristics_right)))
@@ -51,7 +53,11 @@ suppressMessages(library(matrixStats, quietly = T))
   # Figure out how many samples are present
   Nsamp=unlist(strsplit(InputData[ 1,"Samples_ID"], ","))
   Nsamp2=Nsamp[length(Nsamp)]
+  Nsamp2=gsub("-", ".", Nsamp2)
+  print(Nsamp2)
+  
   temp=strsplit(as.character(InputData[ ,match(Nsamp2, colnames(InputData)) ]), ":")
+  head(temp)
   
   if ( opts$germline ){
     GT=sapply(temp, function(x) x[1])
@@ -126,7 +132,7 @@ suppressMessages(library(matrixStats, quietly = T))
   sprintf('Find genes involved in %s pathway', opts$pathwayList)
   ## Pathways of Interest
   #PWtable=read.csv("~/Documents/ER_pilot/annotations//PathwayList.csv")
-  PWtable=read.csv("annotFiles/PathwayList.csv")
+  PWtable=read.csv("/annotFiles/PathwayList.csv")
   nx=which(colnames(PWtable)==opts$pathwayList)
   nx=setdiff(as.vector(PWtable[ ,nx]), "")
   ex1=unique(unlist(sapply(nx, function(x) grep(x, InputData$Pathways))))
@@ -172,6 +178,7 @@ suppressMessages(library(matrixStats, quietly = T))
     InputData=InputData[tx1, ]
   }
   print(paste0("Number of rows:", nrow(InputData)))
+  }
   
   print('Finished! Write out formated output table')
   if (opts$CNV){

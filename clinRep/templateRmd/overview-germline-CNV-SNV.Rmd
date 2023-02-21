@@ -12,14 +12,6 @@ allSNV$class=c(rep("Cosmic", nrow(D2)), rep("Pathway", nrow(D3)),
 rmIdx=which(allSNV$Consequence%in%c("synonymous_variant", "intergenic_variant"))
 allSNV=allSNV[setdiff(1:nrow(allSNV), rmIdx), ]
 
-##,  )
-# combine the SVs
-allSV=rbind(PGenesSVfilt, CGenesSVfilt)
-allSV$class=c(rep("Pathway", nrow(PGenesSVfilt)),rep("Cosmic", nrow(CGenesSVfilt)))
-
-##venn(list(SNV=allSNV$SYMBOL, SV=allSV$GENE, CNV=T1b$Gene_name))
-
-
 # merge together the information
 t1=paste(allSNV$CHROM, allSNV$POS, allSNV$HGVSp)
 t2=paste0("SNV ", allSNV$Consequence)
@@ -30,19 +22,6 @@ allSNVb=data.frame(SYMBOL=allSNV$SYMBOL, Location=allSNV$ProteinDomain, PopFreq=
 
 if (nrow(allSNVb)>0){
   allSNVb$Genomic.Pos=t1
-}
-
-
-t3=ifelse(allSV$Haploinsufficiency>1 & allSV$Haploinsufficiency<=3, "Haploinsufficient", 
-          ifelse(allSV$Triplosensitivity>1 & allSV$Triplosensitivity<=3, "Triplosensitive", 
-                 ifelse(allSV$PathogenicSource!="", "Possibly pathogenic", 
-                 ifelse(allSV$BenignSource!="", "Possibly benign", "unknown"))))
-
-# bug in binding when there are 0 rows
-allSVb=data.frame(SYMBOL=allSV$GENE, Genomic.Pos= allSV$SV_ID, Location=allSV$Location, PopFreq=allSV$`Pop Freq`, Pathogenicity=t3,   Disease=allSV$OMIM, VariantCategory=allSV$class)
-
-if (nrow(allSVb)>0){
- allSVb$VariantType=paste0("SV ", allSV$TYPE)
 }
 
 # put in a check to make sure dimension is big enough
@@ -62,22 +41,19 @@ allCNVb=data.frame(SYMBOL=T1b$Gene_name, Genomic.Pos=t4, Location=T1b$Location, 
   colnames(allCNVb)=CNames
 }
 
-venn(list(SNV=unique(allSNVb$SYMBOL), SV=unique(allSVb$SYMBOL), CNV=unique(allCNVb$SYMBOL)))
+venn(list(SNV=unique(allSNVb$SYMBOL), CNV=unique(allCNVb$SYMBOL)))
 ```
 
 **Genes with both SNVs and SV/CNV**
 
 ```{r}
-a1=intersect(allSNVb$SYMBOL,allSVb$SYMBOL)
 a2=intersect(allSNVb$SYMBOL,allCNVb$SYMBOL)
-a3=intersect(allSVb$SYMBOL,allCNVb$SYMBOL)
-a4=unique(c(a1, a2))
+a4=unique(a2)
 
 n1=allSNVb[which(allSNVb$SYMBOL%in%a4), ]
-n2=allSVb[which(allSVb$SYMBO%in%a4), ]
 n3=allCNVb[which(allCNVb$SYMBOL%in%a4), ]
 
-Alldf1=rbind(n1, n2, n3)
+Alldf1=rbind(n1, n3)
 
 ``` 
  
@@ -87,17 +63,3 @@ Includes: `r sort(print(unique(Alldf1$SYMBOL)))`
  DT::datatable(Alldf1,rownames=F, filter = 'top', class='cell-border stripe',extensions="Buttons", options=list(dom="Bfrtip",scoller = TRUE, pageLength = 5,  buttons=c(I('colvis'),'csv', 'excel')))
 ```
 
-**Genes with both SVs and CNVs**
-
-```{r}
-n1b=allCNVb[which(allCNVb$SYMBOL%in%a3), ]
-n2b=allSVb[which(allSVb$SYMBOL%in%a3), ]
-
-Alldf2=rbind(n1b, n2b)
-```
-
-Includes:  `r sort(print(unique(Alldf2$SYMBOL)))`
-
-```{r}
-DT::datatable(Alldf2, rownames=F, filter = 'top', class='cell-border stripe',extensions="Buttons", options=list(dom="Bfrtip",scoller = TRUE, pageLength = 5,  buttons=c(I('colvis'),'csv', 'excel')))
-```

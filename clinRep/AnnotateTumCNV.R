@@ -16,11 +16,12 @@ opts <- docopt(doc)
 
 ###SummarizeAnnotSV=function(AnnotSVtsv, outputname, germline=T, MSigDB, GTex,CosmicList, GeneList=NULL, ACMGCutoff=4, Tissue="skin"){
   
-  library(data.table, quietly = T)
-  library(dplyr, quietly = T)
-  library(GSEABase, quietly = T)
-  library(matrixStats, quietly = T)
+suppressMessages(library(data.table, quietly = T))
+suppressMessages(library(dplyr, quietly = T))
+suppressMessages(library(GSEABase, quietly = T))
+suppressMessages(library(matrixStats, quietly = T))
   InputData=read.delim(opts$tsv)
+  nrow(InputData)
    
   # print('Remove blacklisted regions from ENCODE')
   # rmx=which((InputData$ENCODE_blacklist_characteristics_left==""|is.na(InputData$ENCODE_blacklist_characteristics_left)) & 
@@ -118,7 +119,7 @@ opts <- docopt(doc)
   CData=read.csv(opts$CosmicList)
   Nx2=sapply(Genes, function(x) paste(x[which(x%in%CData$Gene.Symbol)], collapse=", "))
   InputData$Cosmic=Nx2
-  
+  nrow(InputData)
   # print('Additional SV or CNV specific filter')
   # ## Additional information based on AnnotSV output
   # if (opts$CNV){
