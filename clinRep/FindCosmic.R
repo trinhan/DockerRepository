@@ -8,11 +8,23 @@
 library("docopt", quietly = T)
 opts <- docopt(doc)
 
+############################################
+#1. Load in all required libraries silently
+############################################
+
 suppressMessages(library(data.table, quietly = T))
 suppressMessages(library(dplyr, quietly = T))
+
+#####################################################################
+#2. Read in the maffile and read the number of variants
+#####################################################################  
 print('RUN COSMIC FILTER')
 InputData=fread(opts$maffile, sep="\t")
+sprintf('Initial Number of variants %s', nrow(InputData))
 
+#####################################################################
+#3. Filter based on whether the variant is in Cosmic Mut or Gene List
+#####################################################################  
 print('Finding cancer variants')
 ## Known Variants associated with cancer?
 # Find variants with Cancer Gene Census Tier in 1:2
@@ -21,16 +33,29 @@ bx1=which(InputData$CancerGeneCensus.Tier%in%c("Hallmark 1", "1", "Hallmark 2", 
 cx1 = which(InputData$CancerMutationCensus.Tier%in%c(1:3))
 sprintf('%s in Cosmic Gene Census', length(bx1))
 sprintf('%s in Cosmic Mut Census', length(cx1))
+
+#####################################################################
+#4. Filter based on presence in oncokb
+#####################################################################  
+
 dx1=grep("Oncogenic", InputData$Oncokb.ONCOGENIC)
 sprintf('%s in Oncokb', length(dx1))
 mx1=unique(sort(c(bx1, cx1, dx1)))
 sprintf('Total %s cancer variants', length(mx1))
 Keep1=InputData[mx1, ]
 
+#####################################################################
+#5. Filter based on gnomad
+#####################################################################  
+
 sprintf('Filter based on gnomad cutoff of %s', opts$gnomadcutoff)
 select1=which(Keep1$AF_max<=opts$gnomadcutoff)
 Keep1=Keep1[select1, ]
 sprintf("%s variants after gnomad filter" ,nrow(Keep1))
+
+#####################################################################
+#6. Filter based on coding variant
+#####################################################################  
 
 if (opts$onlyCoding){
   print('Keep only coding mutations')

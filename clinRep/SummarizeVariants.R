@@ -1,271 +1,278 @@
 #!/usr/bin/Rscript
-"usage: \n SummarizeVariants.R [--maffile=<file> --outputname=<string> --caseName=<string> --caddscore=<float> --gnomadcutoff=<float> --Ncallerthresh=<int> --AddList=<file> --columnEntries=<file>]
-\n options:\n --maffile=<file> maffile that has been annotated using vep & oncokb.
-\n --outputname=<string> output string
-\n --caseName=<string> name of the case sample
+"This script tidies an input maffile by collapsing genotypes and filtering out variants most likely to have a consequence
+
+TierE. ACMG - Genes within the ACMG guidelines
+TierA. COSMIC - Known oncogenes
+TierB. PATHWAY - Relevant pathways to the expected disease mechanism, and/or treatment resistance mechanisms
+TierC. DRUG - Genes with clinvar indications of 
+TierD. VUS - All other genes with a functional consequence
+
+usage: \n SummarizeVariants.R [--maffile=<file> --outputname=<string> --caseName=<string> --caddscore=<float> --gnomadcutoff=<float> --Ncallerthresh=<int> --AddList=<file> --columnEntries=<file>]
+\n options:
+\n --maffile=<file> maffile that has been annotated using vep & oncokb.
+\n --outputname=<string> output string [default: output.tsv]
+\n --caseName=<string> name of the case samplex
 \n --caddscore=<float> [default: 20] score for cadd cut-off
 \n --gnomadcutoff=<float> [default: 0.1]
 \n --Ncallerthresh=<int> [default: 0] minimum number of callers required to output the variant
 \n --AddList=<file> Additional user defined genes [default=NULL]
-\n --columnEntries=<file> Import a table of columns to export and renamed output [default=NULL] " -> doc
+\n --columnEntries=<file> Import a table of columns to export and renamed output " -> doc
 
 library("docopt", quietly = T)
 opts <- docopt(doc)
-#SummarizeVariants(opts$maffile, opts$outputname, opts$germline, opts$caddscore, opts$gnomadcutoff, opts$exomesize, opts$pathwayList)
-#SummarizeVariants=function(maffile, outputname, germline=T, caddscore=20, gnomadcutoff=0.1, exomesize=45, pathwayList,ACMG, AddList=NULL){
+
+############################################
+#1. Load in all required libraries silently
+############################################
+
 suppressMessages(library(data.table, quietly = T))
 suppressMessages(library(dplyr, quietly = T))
-  writeLines('Running SummarizeVariants \n Read in original File.. \n')
-  mydnames=fread(opts$maffile, sep="\t", nrows=0)
-  gnames=colnames(mydnames)[grep("nTot", colnames(mydnames))]
-  gnames2=colnames(mydnames)[grep("^GT", colnames(mydnames))]
-  gnames3=colnames(mydnames)[grep("VAF", colnames(mydnames))]
-  gnames4=colnames(mydnames)[grep("nAlt", colnames(mydnames))]
-  
-  ColNames=read.csv(opts$columnEntries, header=F)
-  
-  ## check which colnames mataches the original file
-  midx=(match(ColNames$V1, colnames(mydnames)))
-  mNames=colnames(mydnames)[na.omit(midx)]
-  
-  InputData=fread(opts$maffile, sep="\t", select=c(mNames, gnames, gnames2, gnames3, gnames4))
-  #print(colnames(InputData))
-  #print(ColNames$V2[which(!is.na(midx))])
-  
-  rm1=c(grep("HLA", InputData$Hugo_Symbol))
-  Test1=InputData[setdiff(1:nrow(InputData), rm1), 1:length(mNames) ]
-  newNames=ColNames$V2[which(!is.na(midx))]
-  colnames(Test1)=ColNames$V2[which(!is.na(midx))]
-  
-  ## rename columns if they don't exist
-  if ( !"ClinVar.Disease"%in%newNames & "ClinVar_Trait"%in%newNames){
-    print('rename column clinvar')
-    colnames(Test1)[which(newNames=="ClinVar_Trait")]="ClinVar.Disease"
+writeLines('Running SummarizeVariants \n Read in original File.. \n')
+
+#####################################################################
+#2. Read in first line of maffile and extract colnames wtih on the total reads(nTot), genotype (GT), VAF and nAlt reads for each caller
+#####################################################################  
+
+mydnames=fread(opts$maffile, sep="\t", nrows=0)
+gnames=colnames(mydnames)[grep("nTot", colnames(mydnames))]
+gnames2=colnames(mydnames)[grep("^GT", colnames(mydnames))]
+gnames3=colnames(mydnames)[grep("VAF", colnames(mydnames))]
+gnames4=colnames(mydnames)[grep("nAlt", colnames(mydnames))]
+
+#####################################################################
+#3. Read in file of column headers to extract
+#####################################################################  
+
+ColNames=read.csv(opts$columnEntries, header=F)
+## check which colnames matches the original file
+midx=match(ColNames$V1, colnames(mydnames))
+mNames=colnames(mydnames)[na.omit(midx)]
+
+#####################################################################
+#4. Read in maffile, only with column names of interest (in step 2 and 3)
+#####################################################################  
+
+InputData=fread(opts$maffile, sep="\t", select=c(mNames, gnames, gnames2, gnames3, gnames4))
+
+######################################################################
+#5. Remove HLA genes (hypervariable) and sep annotations from genotypes
+#######################################################################
+rm1=c(grep("HLA", InputData$Hugo_Symbol))
+AnnotOnly=InputData[setdiff(1:nrow(InputData), rm1), 1:length(mNames) ]
+ValsOnly=InputData[setdiff(1:nrow(InputData), rm1), (length(mNames)+1):ncol(InputData) ]
+newNames=ColNames$V2[which(!is.na(midx))]
+colnames(AnnotOnly)=ColNames$V2[which(!is.na(midx))]
+
+#####################################################
+##6. rename columns if they don't exist - if bypass onocokb, some inputs may not exist
+###################################################
+if ( !"ClinVar.Disease"%in%newNames & "ClinVar_Trait"%in%newNames){
+    print('rename ClinVar Traits as ClinVar Disease')
+    colnames(AnnotOnly)[which(newNames=="ClinVar_Trait")]="ClinVar.Disease"
   }
   
-  if (!"ClinVar.Sig"%in%newNames & "ClinSig"%in%newNames){
-     print('rename column ClinSig')
-     colnames(Test1)[which(newNames=="ClinSig")]="ClinVar.Sig"
+if (!"ClinVar.Sig"%in%newNames & "ClinSig"%in%newNames){
+     print('rename column ClinSig as ClinVar.Sig')
+     colnames(AnnotOnly)[which(newNames=="ClinSig")]="ClinVar.Sig"
   }
   
   if (!"gnomAD.AF"%in%newNames & "gnomad_MAX_AF"%in%newNames){
-    print('rename column gnomad')
-    colnames(Test1)[which(newNames=="gnomad_MAX_AF")]="gnomAD.AF"
+    print('rename column gnomad_MAX_AF as gnomAD.AF')
+    colnames(AnnotOnly)[which(newNames=="gnomad_MAX_AF")]="gnomAD.AF"
   }
-  
+
+#####################################################
+##7. reset the CADD scoring threshold if column does not exist
+###################################################
+
   if (!"CADD"%in%newNames){
-    print('reset CADD cut-off')
+    print('reset CADD cut-off, not part of selection criteria')
     opts$caddscore=0
   }
-  
-  if (!"MGRB.AF"%in%newNames & "gnomAD.AF"%in%colnames(Test1)){
-    print('gnomad only')
-    Test1$AF_max=Test1$gnomAD.AF
-    Test1$AF_max[which(is.na(Test1$AF_max))]=0
-  } else if ("MGRB.AF"%in%newNames & "gnomAD.AF"%in%colnames(Test1)){
-    Test1$gnomAD.AF[which(is.na(Test1$gnomAD.AF))]=0
-    Test1$MGRB.AF[which(is.na(Test1$MGRB.AF))]=0
-    Test1$AF_max=ifelse(Test1$gnomAD.AF>Test1$MGRB.AF, Test1$gnomAD.AF, Test1$MGRB.AF)
-  }
-  
-  print('Parse ClinVar and Protein annotations')
-  
-  ## Rename the Test1
-  Test1$ClinVar.Disease=gsub("not_specified", "", Test1$ClinVar.Disease)
-  Test1$ClinVar.Disease=gsub("not_provided", "", Test1$ClinVar.Disease)
-  Test1$ClinVar.Disease=gsub("&", " ", Test1$ClinVar.Disease)
-  Test1$ProteinDomain=ifelse(is.na(Test1$pfam), Test1$pirsf, Test1$pfam)
-  print('Extract genotypes and callers')
-  Nx=InputData %>% select(all_of(gnames))
-  Nx=data.frame(Nx)
-  Nx=data.matrix(Nx)
-  Nxb=Nx[ , grep(opts$caseName, colnames(Nx))]
-  
-  ## Do the same thing with the GT
-  GT=InputData %>% select(all_of(gnames2))
-  GT=data.frame(GT)
-  GTb=GT[, grep(opts$caseName, colnames(GT))]
-  ## collapse the genotypes if more than 1 column is found
-  VAF=InputData %>% select(all_of(gnames3))
-  VAF=data.frame(VAF)
-  VAFb=VAF[ , grep(opts$caseName, colnames(VAF)) ]
 
-  ## put a ctach for single callers
+#####################################################
+##8. Consider max value of gnomad and MGRB and assign in $AF_max. Set unknown AF to 0
+###################################################
+  
+  if (!"MGRB.AF"%in%newNames & "gnomAD.AF"%in%newNames){
+    print('gnomad only')
+    AnnotOnly$AF_max=AnnotOnly$gnomAD.AF
+    AnnotOnly$AF_max[which(is.na(AnnotOnly$AF_max))]=0
+  } else if ("MGRB.AF"%in%newNames & "gnomAD.AF"%in%newNames){
+    print('both gnomad and mgrb exist, use the higher AF')
+    AnnotOnly$gnomAD.AF[which(is.na(AnnotOnly$gnomAD.AF))]=0
+    AnnotOnly$MGRB.AF[which(is.na(AnnotOnly$MGRB.AF))]=0
+    AnnotOnly$AF_max=ifelse(AnnotOnly$gnomAD.AF>AnnotOnly$MGRB.AF, AnnotOnly$gnomAD.AF, AnnotOnly$MGRB.AF)
+  } else if ("MGRB.AF"%in%newNames & !"gnomAD.AF"%in%newNames){
+    print('MGRB only')
+    AnnotOnly$AF_max=AnnotOnly$MGRB.AF
+    AnnotOnly$AF_max[which(is.na(AnnotOnly$AF_max))]=0
+  }
+
+#####################################################
+##9. Clean up ClinVar Annotations and Protein 
+###################################################
+
+print('Parse ClinVar and Protein annotations')
+AnnotOnly$ClinVar.Disease=gsub("not_specified", "", AnnotOnly$ClinVar.Disease)
+AnnotOnly$ClinVar.Disease=gsub("not_provided", "", AnnotOnly$ClinVar.Disease)
+AnnotOnly$ClinVar.Disease=gsub("&", " ", AnnotOnly$ClinVar.Disease)
+AnnotOnly$ProteinDomain=ifelse(is.na(AnnotOnly$pfam), AnnotOnly$pirsf, AnnotOnly$pfam)
+
+#####################################################
+##10. Modify disease frequency summary
+###################################################
+
+print('Modify disease frequency text')
+#e.g. upper_aerodigestive_tract/carcinoma/squamous_cell_carcinoma=20/935=2.14%;central_nervous_system/glioma/astrocytoma_Grade_I=10/12=83.33%;soft_tissue/haemangioblastoma/NS=22/25=88%"
+#to "upper_aerodigestive_tract SCC=2.14%;central_nervous_system glioma astrocytoma_Grade_I=83.33%;soft_tissue haemangioblastoma=88%"
+
+#remove "NS" - number of samples in text
+AnnotOnly$Cancer.Disease.Freq=gsub("\\/NS", "", AnnotOnly$Cancer.Disease.Freq)
+#remove "/carcinoma/" as non-specific and usually accompanied by SCC or NSCC
+AnnotOnly$Cancer.Disease.Freq=gsub("\\/carcinoma\\/", " ", AnnotOnly$Cancer.Disease.Freq)
+#abbreviate squamous cell carcinoma
+AnnotOnly$Cancer.Disease.Freq=gsub("squamous_cell_carcinoma", "SCC", AnnotOnly$Cancer.Disease.Freq)
+#abbreviate non small cell carcinoma
+AnnotOnly$Cancer.Disease.Freq=gsub("non_small_cell_carcinoma", "NSCC", AnnotOnly$Cancer.Disease.Freq)
+#remove the number of cases, and only consider percentages
+AnnotOnly$Cancer.Disease.Freq=gsub("=[0-9]*\\/[0-9]*", "", AnnotOnly$Cancer.Disease.Freq)
+#remnove slashes and replace with space
+AnnotOnly$Cancer.Disease.Freq=gsub("\\/", " ", AnnotOnly$Cancer.Disease.Freq)
+
+
+#####################################################
+##11. Compute summary stats on number of callers, average depth etc
+###################################################
+
+print('Extract genotypes and callers specific to the sample')
+# Extract nTotal
+Nx=ValsOnly %>% select(all_of(gnames))
+Nx=data.matrix(data.frame(Nx))
+Nxb=Nx[ , grep(opts$caseName, colnames(Nx))]
+  
+## Extract GT
+GT=ValsOnly %>% select(all_of(gnames2))
+GT=data.frame(GT)
+GTb=GT[, grep(opts$caseName, colnames(GT))]
+
+## Extract VAF
+VAF=ValsOnly %>% select(all_of(gnames3))
+VAF=data.frame(VAF)
+VAFb=VAF[ , grep(opts$caseName, colnames(VAF)) ]
+
+## Extract nAlt
+nAlt=ValsOnly %>% select(all_of(gnames4))
+nAlt=data.frame(nAlt)
+nAltb=nAlt[ , grep(opts$caseName, colnames(nAlt)) ]
+
+##If a sample has nAlt=0, substitute as NA
+tx=which(nAltb==0, arr.ind = T)
+nAltb[tx]=NA
+VAFb[tx]=NA
+GTb[tx]=NA
+
+## put in a catch for single callers
   if (is.null(ncol(Nxb))){
     print('note only 1 caller used')
+    # header name - caller.nTot.Name
     HeaderV=strsplit(colnames(Nx),"\\.")
     HeaderV=sapply(HeaderV, function(x) x[3])
-    Test1$Ncall=1
-    Test1$Ncallers=unlist(HeaderV)[1]
-    Test1$Depth=Nxb[setdiff(1:nrow(InputData), rm1)]
-    Test1$Genotype=GT[setdiff(1:nrow(InputData), rm1) ,grep(opts$caseName, colnames(GT))]
-    Test1$VAF=VAFb[setdiff(1:nrow(InputData), rm1) ]
+    # set number of callers to 1
+    AnnotOnly$Ncall=1
+    # list the name of the caller
+    AnnotOnly$Ncallers=unlist(HeaderV)[1]
+    # Set the depth, Genotype and VAF 
+    AnnotOnly$Depth=Nxb
+    AnnotOnly$Genotype=GTb
+    AnnotOnly$VAF=VAFb
   }else{
     HeaderV=strsplit(colnames(Nxb),"\\.")
     HeaderV=sapply(HeaderV, function(x) x[3])
+    # Calculate the av depth from all callers
     AvDepth=ceiling(rowMeans(Nxb, na.rm=T))
-    Nx2=sapply(1:ncol(Nxb), function(x) ifelse(!is.na(Nxb[,x ]), HeaderV[x], NA))
-  #Nx=data.matrix(Nx)
+    # count the number of callers for each row
     Ncall=rowSums(sign(Nxb), na.rm = T)
+    # obtain the names of the callers which do not return NA, and separate with ,
+    Nx2=sapply(1:ncol(Nxb), function(x) ifelse(!is.na(Nxb[,x ]), HeaderV[x], NA))
     Ncallers=sapply(1:nrow(Nx2), function(x) paste(na.omit(Nx2[x, ]),collapse=","))
-    Test1$Ncallers=Ncallers[setdiff(1:nrow(InputData), rm1)]
-    Test1$Ncall=Ncall[setdiff(1:nrow(InputData), rm1)]
-    Test1$Depth=AvDepth[setdiff(1:nrow(InputData), rm1)]
-    VAFb=data.matrix(VAFb)
+    # assign values
+    AnnotOnly$Ncallers=Ncallers
+    AnnotOnly$Ncall=Ncall
+    AnnotOnly$Depth=AvDepth
+    # compute the VAF and round to 3 decimal places
     VAF2=rowMeans(VAFb, na.rm = T)
-    Test1$VAF=round(VAF2[setdiff(1:nrow(InputData), rm1)], 3)
-    head(Test1$VAF)
-    ax=ncol(GT)
-    if (ax>1){
-      m1=which(GT[ ,1]!=GT[,2])
-      Genotype=ifelse(!is.na(GT[ ,3]), GT[ ,3], ifelse(!is.na(GT[,2]), GT[,2], GT[,1]))
-    } else{
-      Genotype=GT[,1]  
-    }
-    Test1$Genotype=Genotype[setdiff(1:nrow(InputData), rm1)]
+    AnnotOnly$VAF=round(VAF2, 3)
+    # Collapse the Genotypes - this assumes they will all be similar?
+    # Take the most common genotype for each row, exclude NA values
+    GTcons2=sapply(1:nrow(GTb), function(x) names(which.max(table(t(GTb[x, ])))))
+    AnnotOnly$Genotype=GTcons2
   }
 
-  ## delete this later
-  ###est1$Genotype=ifelse(Test1$VAF>0.85, "1/1", "0/1")
-  
-  print('Modify disease frequency summary')
-  Test1$Cancer.Disease.Freq=gsub("\\/NS", "", Test1$Cancer.Disease.Freq)
-  Test1$Cancer.Disease.Freq=gsub("\\/carcinoma\\/", " ", Test1$Cancer.Disease.Freq)
-  Test1$Cancer.Disease.Freq=gsub("squamous_cell_carcinoma", "SCC", Test1$Cancer.Disease.Freq)
-  Test1$Cancer.Disease.Freq=gsub("non_small_cell_carcinoma", "NSCC", Test1$Cancer.Disease.Freq)
-  Test1$Cancer.Disease.Freq=gsub("=[0-9]*\\/[0-9]*", "", Test1$Cancer.Disease.Freq)
-  Test1$Cancer.Disease.Freq=gsub("\\/", " ", Test1$Cancer.Disease.Freq)
-  
-  ## Test whether in additional annot List
-  Test1$UserGeneList=NA
-  if (!is.null(opts$AddList)){
-    ImmTable=read.csv(opts$AddList, header=F)
-    ImmTable=ImmTable[ ,1]
-    int2=which(Test1$SYMBOL%in%ImmTable)
-    Test1$UserGeneList[int2]=1
-  }
-  
-  ## Increased cancer disease freq
-  sprintf('Keep only variants called by more than %s callers', opts$Ncallerthresh)
-  Test1=Test1[which(Test1$Ncall>opts$Ncallerthresh), ]
+# filter out variants if they dont meet the minimum caller requirement
+sprintf('Keep only variants called by more than %s callers', opts$Ncallerthresh)
+AnnotOnly=AnnotOnly[which(AnnotOnly$Ncall>opts$Ncallerthresh), ]
 
-  
-  ## Test whether in additional annot List
-  Test1$UserGeneList=NA
+#####################################################
+##12. Add annotation if gene is in user list
+###################################################
+
+  AnnotOnly$UserGeneList=NA
   if (!is.null(opts$AddList)){
-    ImmTable=read.csv(opts$AddList, header=F)
-    ImmTable=ImmTable[ ,1]
-    int2=which(Test1$SYMBOL%in%ImmTable)
-    Test1$UserGeneList[int2]=1
+    # assume the file doesn't have a header
+    UserTab=read.csv(opts$AddList, header=F)
+    # extract only the first line as a vector
+    UserTab=UserTab[ ,1]
+    # indicate it is in the gene list with a value 1
+    int2=which(AnnotOnly$SYMBOL%in%UserTab)
+    AnnotOnly$UserGeneList[int2]=1
   }
   
-  ## Summary of variants which fits the cadd cutoffs, gnomad AF cutoffs and is in a coding region
+#####################################################
+## 13. Add extra annotation on predicted pathogenicicty:
+## * coding consequence * pathogenicity filter based on clinvar, polyphen,IMPACT and/or CADD 
+###################################################
+
+  ## Annotate whether the variant could have a functional consequence
   ConsequenceVals=c("missense", "nonsense", "frameshift", "splice", "UTR", "inframe", "stop", "NMD")
-  Nxgrep=sapply(ConsequenceVals, function(x) grep(x, Test1$Consequence))
-  Test1$ConsB=NA
-  Test1$ConsB[unlist(Nxgrep)]=1
+  Nxgrep=sapply(ConsequenceVals, function(x) grep(x, AnnotOnly$Consequence))
+  AnnotOnly$ConsB=NA
+  AnnotOnly$ConsB[unlist(Nxgrep)]=1
   
   # Add a potential filter based on pathogenicity
-  Test1$Pathogenicity=NA
+  AnnotOnly$Pathogenicity=NA
   # select based on clinVar
-  select3=unique(unlist(sapply(c("pathogenic", "risk_factor", "drug_response", "protective"), function(x) grep(x, Test1$ClinVar.Sig, ignore.case=T))))
-  length(select3)
+  inClinVar=unique(unlist(sapply(c("pathogenic", "risk_factor", "drug_response", "protective"), function(x) grep(x, AnnotOnly$ClinVar.Sig, ignore.case=T))))
   # select based on polyphen
-  select4=grep("damaging", Test1$PolyPhen)
-  length(select4)
+  inPolyPhen=grep("damaging", AnnotOnly$PolyPhen)
+  # select in "IMPACT"
+  inIMPACT=which(AnnotOnly$IMPACT=="HIGH")
   # select based on CADD
   if (as.numeric(opts$caddscore)>0){
-    select5=which(Test1$CADD> as.numeric(opts$caddscore))
-    length(select5)
-    sprintf("%s variants after CADD filter" ,length(select5))
-    idx=unique(c(select3, select4, select5))
+    inCADD=which(AnnotOnly$CADD> as.numeric(opts$caddscore))
+    idx=unique(c(inClinVar, inPolyPhen, inIMPACT,inCADD))
   }else{
-    idx=unique(c(select3, select4))
+    idx=unique(c(inClinVar, inPolyPhen, inIMPACT))
   }
-  
-  Test1$Pathogenicity[idx]=1
-  write.table(Test1, file=paste(opts$outputname, "variantsAll.maf", sep=""), sep = "\t", row.names = F,  quote = F)
-    
-  # print('Finding ACMG variants')
-  # ## ACMG variants
-  # ACMGtable=read.csv(opts$ACMG)
-  # Lx1=which(Test1$SYMBOL%in%ACMGtable$Gene)
-  # strSplitA=strsplit(Test1$ClinVar.Sig, "&")
-  # Nx2=sapply(strSplitA, function(x) length(which(c("pathogenic", "Pathogenic", "Likely_pathogenic", "likely_pathogenic")%in%x)))
-  # Lx2=which(Nx2>0)
-  # Lx3=intersect(Lx1, Lx2)
-  # sprintf("%s variants in ACMG list", length(Lx3))
-  # Keep0=Test1[Lx3, ]%>%select(!"AF_max")
+  AnnotOnly$Pathogenicity[idx]=1
 
-  #if (length(Lx3)>0){
-  #  Keep0=Test1[Lx3, ]
-  #}else{
-  #  Keep0=""
-  #}
-  
-#   print('Finding cancer variants')
-#   ## Known Variants associated with cancer?
-#   bx1=which((Test1$CancerGeneCensus.Tier%in%c("Hallmark 1", "1", "Hallmark 2", "2") & Test1$CancerMutationCensus.Tier%in%c(1:3)))
-#  # length(bx1)
-#  # bx2=which(Test1$CMC.Cancer_Gene_Tier %in% c("Hallmark 1", "1", "Hallmark 2", "2"))
-# #  table(Test1$CMC.Cancer_Gene_Tier)
-#   #colnames(Test1)
-#   sprintf('%s in Cosmic', length(bx1))
-#   cx1=grep("Oncogenic", Test1$Oncokb.ONCOGENIC)
-#   sprintf('%s in Oncokb', length(cx1))
-#   mx1=unique(sort(c(bx1, cx1)))
-#   sprintf('Total %s cancer variants', length(mx1))
-#   Keep1=Test1[mx1, ] %>% select(!"AF_max")
-#   
-  # print('Finding drug assoc variants')
-  # ## Known Variants associated with drug response or 
-  # nx1=grep("drug_response|protective", Test1$ClinVar.Sig)
-  # sprintf("%s variants realted to drug response or protective effect", length(nx1))
-  # Keep2=Test1[nx1, ]%>%select(!"AF_max")
-  
- 
+#####################################################
+## 14. Filter an output table for the next steps
+## save to file: all Variants, filtered and summary table
+###################################################
 
-  # sprintf('Find genes involved in %s pathway', opts$pathwayList)
-  # ## Pathways of Interest /opt/PathwayList.csv
-  # PWtable=read.csv("/annotFiles/PathwayList.csv")
-  # nx=which(colnames(PWtable)==opts$pathwayList)
-  # nx=setdiff(as.vector(PWtable[ ,nx]), "")
-  # ex1=unique(unlist(sapply(nx, function(x) grep(x, Test1$HallmarkPathways))))
-  # sprintf( "%s variants pathway of interest" ,length(ex1))  
-  # 
-  # if (!is.null(opts$AddList)){
-  #   ex2=which(Test1$UserGeneList==1)
-  #   ex1=unique(c(ex1, ex2))
-  #   sprintf( "%s variants in user defined list" ,length(ex2))
-  #   }
-  # 
-  # Keep4=Test1[ex1, ]%>%select(!c("AF_max", "ConsB"))
-  # 
-  # # Refine this to include CADD high score if it does not affect a coding region
-  # #lx1=which(is.na(Keep4$HGVSp))
-  # if (opts$caddscore>0){
-  #   print('keep variants with high cadd cutoff')
-  #   select2=which(Keep4$CADD>as.numeric(opts$caddscore))
-  # } else{
-  #   print('keep variants with high cadd cutoff')
-  #   select2=which(Keep4$ConsB==1)
-  #  }
-  # select3=unique(unlist(sapply(c("pathogenic", "risk_factor", "drug_response"), function(x) grep(x, Keep4$ClinSig))))
-  # select4=grep("damaging", Keep4$PolyPhen)
-  # rmT=unique(c(select2, select3, select4))
-  # Keep4=Keep4[rmT, ]
-  
-  print('generate coding list based on gnomad, Cons and Pathogenicity')
-  nidx=which(Test1$AF_max<=as.numeric(opts$gnomadcutoff) & Test1$ConsB==1 & Test1$Pathogenicity==1)
+  print('Generate filteredlist based on gnomad, protein consequence and Pathogenicity')
+  nidx=which(AnnotOnly$AF_max<=as.numeric(opts$gnomadcutoff) & AnnotOnly$ConsB==1 & AnnotOnly$Pathogenicity==1)
+  FilteredTable=AnnotOnly[nidx,  ]
   sprintf("Summarize variants with gnomad %s Consequence coding, Expanded list contains %s variants", as.numeric(opts$gnomadcutoff), length(nidx))
-  
-  FilteredTable=Test1[nidx,  ]%>%select(!c("AF_max", "ConsB"))   
-    ## Summary Stats
-  DFValues=data.frame(Nvar=nrow(Test1))
+    
+  ## Summary Stats
+  DFValues=data.frame(Nvar=nrow(AnnotOnly))
   
   print('Finished! Writing out files')
-  write.table(Test1, file=paste(opts$outputname, "variantsAll.maf", sep=""), sep = "\t", row.names = F,  quote = F)
-  write.table(DFValues, file=paste(opts$outputname, "variantSummary.filt.maf", sep=""), sep = "\t", row.names = F,  quote = F)
+  FilteredTable <- apply(FilteredTable,2,as.character)
+  AnnotOnly <- apply(AnnotOnly,2,as.character)
   write.table(FilteredTable, file=paste(opts$outputname, "variantsCoding.filt.maf", sep=""), sep = "\t", row.names = F,  quote = F)
-#}
-
+  write.table(DFValues, file=paste(opts$outputname, "variantSummary.filt.maf", sep=""), sep = "\t", row.names = F,  quote = F)
+  write.table(AnnotOnly, file=paste(opts$outputname, "variantsAll.maf", sep=""), sep = "\t", row.names = F,  quote = F)
+ 

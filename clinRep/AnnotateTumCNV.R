@@ -1,6 +1,9 @@
 #!/usr/bin/Rscript
-"usage: \n AnnotateTumCNV.R [--tsv=<file> --outputname=<string> --MSigDB=<file> --GTex=<file> --CosmicList=<file> --AddList=<file> --pathwayList=<string> --Tissue=<string> ]
-\n options:\n --tsv=<file> tsv from AnnotSV.
+" This is a script to tidy up tumour files which have been annotated with funcotator instead of annotSV
+usage: \n 
+AnnotateTumCNV.R [--tsv=<file> --outputname=<string> --MSigDB=<file> --GTex=<file> --CosmicList=<file> --AddList=<file> --pathwayList=<string> --Tissue=<string> ]
+\n Options:
+\n --tsv=<file> tsv from functotator.
 \n --outputname=<string> output string
 \n --MSigDB=<file> File containing MsigDB gene set information
 \n --GTex=<file> GTex Expression Data
@@ -14,14 +17,24 @@
 library("docopt", quietly = T)
 opts <- docopt(doc)
 
-###SummarizeAnnotSV=function(AnnotSVtsv, outputname, germline=T, MSigDB, GTex,CosmicList, GeneList=NULL, ACMGCutoff=4, Tissue="skin"){
-  
+############################################
+#1. Load in all required libraries silently
+############################################
+
 suppressMessages(library(data.table, quietly = T))
 suppressMessages(library(dplyr, quietly = T))
 suppressMessages(library(GSEABase, quietly = T))
 suppressMessages(library(matrixStats, quietly = T))
-  InputData=read.delim(opts$tsv)
-  nrow(InputData)
+
+############################################
+#2. Read in data file
+############################################
+InputData=read.delim(opts$tsv)
+
+############################################
+#3. Remove blacklisted regions from ENCODE
+############################################
+
    
   # print('Remove blacklisted regions from ENCODE')
   # rmx=which((InputData$ENCODE_blacklist_characteristics_left==""|is.na(InputData$ENCODE_blacklist_characteristics_left)) & 
