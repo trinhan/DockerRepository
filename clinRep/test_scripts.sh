@@ -18,9 +18,9 @@ pathwayTerms="Immunotherapy"
 pathwayList="/Users/anntri/gitLibs/DockerRepository/clinRep/annotFiles/PathwayList.csv"
 columnEntries="/Users/anntri/gitLibs/DockerRepository/clinRep/annotFiles/ColumnIDs.csv"
 
-Rscript vepVCF2maf.R --vcffile $Sample --outputfile vep.maf --sampleName $SampleName --canonical T --runMode Tumour --AAlist $AAlist
-Rscript DBAnnotations.R --maffile vep.maf --outputfile dba.maf --sampleName $SampleName --cosmicMut $cosmicMut --cosmicGenes $cosmicGenes --MSigDB $MsigDBAnnotation --pfam $pfam --pirsf $pirsf 
-paste vep.maf dba.maf > $Output
-Rscript SummarizeVariants.R --maffile $Output --outputname $SampleName --caseName "ER099_MEL4" --caddscore 10 --gnomadcutoff 0.4 --Ncallerthresh 1 --AddList $AddList --columnEntries $columnEntries
+#Rscript vepVCF2maf.R --vcffile $Sample --outputfile vep.maf --sampleName $SampleName --canonical T --runMode Tumour --AAlist $AAlist
+#Rscript DBAnnotations.R --maffile vep.maf --outputfile dba.maf --sampleName $SampleName --cosmicMut $cosmicMut --cosmicGenes $cosmicGenes --MSigDB $MsigDBAnnotation --pfam $pfam --pirsf $pirsf 
+#paste vep.maf dba.maf > $Output
+Rscript SummarizeVariants.R --maffile $Output --outputname $SampleName --caseName "ER099_MEL4" --caddscore 10 --Ncallerthresh 1 --AddList $AddList --columnEntries $columnEntries
 Rscript FilterVariants.R --maffile ${SampleName}variantsCoding.filt.maf --scoringRubrik $ScoreMatrix --outputname $SampleName --ACMG $ACMG --pathwayList $pathwayTerms --pathwayFile $pathwayList --gnomadcutoff 0.1 --onlyCoding T --pathogenic T
       

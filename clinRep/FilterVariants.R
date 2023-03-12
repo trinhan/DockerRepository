@@ -166,7 +166,7 @@ for (i in 1:ncol(MatrixIn)){
 }
 
 ScorMat2=cbind(InputData[ ,1:5], ScorMat)
-write.table(ScorMat, file=paste(opts$outputname, ".scoringMatrix.txt", sep=""), sep = "\t", row.names = F,  quote = F)
+write.table(ScorMat2, file=paste(opts$outputname, ".scoringMatrix.txt", sep=""), sep = "\t", row.names = F,  quote = F)
 
 print('Finished pre-processing')
 

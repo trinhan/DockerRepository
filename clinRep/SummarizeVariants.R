@@ -1,21 +1,15 @@
 #!/usr/bin/Rscript
-"This script tidies an input maffile by collapsing genotypes and filtering out variants most likely to have a consequence
+"This script tidies an input maffile by collapsing genotypes and filtering out variants most likely to have a consequence. It will
+also rename headers in preparation for variant filtration
 
-TierE. ACMG - Genes within the ACMG guidelines
-TierA. COSMIC - Known oncogenes
-TierB. PATHWAY - Relevant pathways to the expected disease mechanism, and/or treatment resistance mechanisms
-TierC. DRUG - Genes with clinvar indications of 
-TierD. VUS - All other genes with a functional consequence
-
-usage: \n SummarizeVariants.R [--maffile=<file> --outputname=<string> --caseName=<string> --caddscore=<float> --gnomadcutoff=<float> --Ncallerthresh=<int> --AddList=<file> --columnEntries=<file>]
+usage: \n SummarizeVariants.R [--maffile=<file> --outputname=<string> --caseName=<string> --Ncallerthresh=<int> --AddList=<file> --caddscore=<float> --columnEntries=<file>]
 \n options:
 \n --maffile=<file> maffile that has been annotated using vep & oncokb.
 \n --outputname=<string> output string [default: output.tsv]
 \n --caseName=<string> name of the case samplex
-\n --caddscore=<float> [default: 20] score for cadd cut-off
-\n --gnomadcutoff=<float> [default: 0.1]
 \n --Ncallerthresh=<int> [default: 0] minimum number of callers required to output the variant
 \n --AddList=<file> Additional user defined genes [default=NULL]
+\n --caddscore=<float> [default: 0] score for cadd cut-off
 \n --columnEntries=<file> Import a table of columns to export and renamed output " -> doc
 
 library("docopt", quietly = T)
@@ -261,10 +255,10 @@ AnnotOnly=AnnotOnly[which(AnnotOnly$Ncall>opts$Ncallerthresh), ]
 ## save to file: all Variants, filtered and summary table
 ###################################################
 
-  print('Generate filteredlist based on gnomad, protein consequence and Pathogenicity')
-  nidx=which(AnnotOnly$AF_max<=as.numeric(opts$gnomadcutoff) & AnnotOnly$ConsB==1 & AnnotOnly$Pathogenicity==1)
+  print('Generate filteredlist based on protein consequence and Pathogenicity')
+  nidx=which(AnnotOnly$ConsB==1 & AnnotOnly$Pathogenicity==1)
   FilteredTable=AnnotOnly[nidx,  ]
-  sprintf("Summarize variants with gnomad %s Consequence coding, Expanded list contains %s variants", as.numeric(opts$gnomadcutoff), length(nidx))
+  sprintf("Summarize variants with Consequence coding, Expanded list contains %s variants", length(nidx))
     
   ## Summary Stats
   DFValues=data.frame(Nvar=nrow(AnnotOnly))
