@@ -45,7 +45,7 @@ if (opts$runMode=="Tumour"){
   # SNV-calclate af
   af1=extract.gt(inputFile, element='AF', as.numeric=TRUE)
   # extract information on Strelka runs here
-
+  
   ad2<- extract.gt(inputFile, element='TIR', as.numeric=TRUE)
   adv2<- extract.gt(inputFile, element='TAR', as.numeric=TRUE)
   vaf2=adv2/(adv2+ad2)
@@ -60,73 +60,73 @@ if (opts$runMode=="Tumour"){
   dp=ifelse(is.na(dp1), dp2, dp1)
   # obtain the genotype
   gt<-extract.gt(inputFile, element='GT')
-  } else if (opts$runMode=="Germline") {
-    print('Get depth info for normal')
-    # extract the AD tag
-    adv <- extract.gt(inputFile, element='AD', as.numeric=F)
-    t2=colnames(adv)
-    # split into ref vs alt counts
-    adA = strsplit(adv, ",")
-    fwdA=sapply(adA, function(x) x[2])
-    revA=sapply(adA, function(x) x[1])
-    adv=matrix(as.numeric(fwdA), ncol=ncol(adv))
-    colnames(adv)=t2
-    adv2=matrix(as.numeric(revA), ncol=ncol(adv))
-    colnames(adv2)=t2
-    # compute depth and vaf (some callers do not have this info)
-    dp=adv+adv2
-    vaf=adv/dp
-    gt<-extract.gt(inputFile, element='GT')
-  }
+} else if (opts$runMode=="Germline") {
+  print('Get depth info for normal')
+  # extract the AD tag
+  adv <- extract.gt(inputFile, element='AD', as.numeric=F)
+  t2=colnames(adv)
+  # split into ref vs alt counts
+  adA = strsplit(adv, ",")
+  fwdA=sapply(adA, function(x) x[2])
+  revA=sapply(adA, function(x) x[1])
+  adv=matrix(as.numeric(fwdA), ncol=ncol(adv))
+  colnames(adv)=t2
+  adv2=matrix(as.numeric(revA), ncol=ncol(adv))
+  colnames(adv2)=t2
+  # compute depth and vaf (some callers do not have this info)
+  dp=adv+adv2
+  vaf=adv/dp
+  gt<-extract.gt(inputFile, element='GT')
+}
 
-  colnames(adv)=paste("nAlt", colnames(adv), sep="-")
-  colnames(dp)=paste("nTot", colnames(dp), sep="-")
-  colnames(vaf)=paste("VAF", colnames(vaf), sep="-")
-  colnames(gt)=paste("GT", colnames(gt), sep="-")
-  
-  VAFd=cbind(adv, dp, vaf, gt)
+colnames(adv)=paste("nAlt", colnames(adv), sep="-")
+colnames(dp)=paste("nTot", colnames(dp), sep="-")
+colnames(vaf)=paste("VAF", colnames(vaf), sep="-")
+colnames(gt)=paste("GT", colnames(gt), sep="-")
+
+VAFd=cbind(adv, dp, vaf, gt)
 
 #####################################################################
 #4. Preparation to extract VEP annotations
 #####################################################################  
 
-  LxB=nrow(vcfFix)
-  sprintf('Get CSQ colnames... There are %s variants', LxB)
-  
-  # get the names of the vep columns
-  a1=inputFile@meta
-  x1=a1[grep("CSQ", a1)]
-  SNames=unlist(strsplit( substr(x1, regexpr(  "Format: *",x1)+8, nchar(x1)-2), "\\|"))
-  # read in AA amino acid file
-  AAlist=read.csv(opts$AAlist)
-  
-  # Note that reading the whole vcf file and storing in memory can take a long time.
-  # Here, we try to parallelise this by reading in 50000 rows at a time
-  
-  # function to define how many for loops are required for reading.
-  seqlast <- function (from, to, by) 
-  {
-    vec <- do.call(what = seq, args = list(from, to, by))
-    if ( tail(vec, 1) != to ) {
-      return(c(vec, to))
-    } else {
-      return(vec)
-    }
+LxB=nrow(vcfFix)
+sprintf('Get CSQ colnames... There are %s variants', LxB)
+
+# get the names of the vep columns
+a1=inputFile@meta
+x1=a1[grep("CSQ", a1)]
+SNames=unlist(strsplit( substr(x1, regexpr(  "Format: *",x1)+8, nchar(x1)-2), "\\|"))
+# read in AA amino acid file
+AAlist=read.csv(opts$AAlist)
+
+# Note that reading the whole vcf file and storing in memory can take a long time.
+# Here, we try to parallelise this by reading in 50000 rows at a time
+
+# function to define how many for loops are required for reading.
+seqlast <- function (from, to, by) 
+{
+  vec <- do.call(what = seq, args = list(from, to, by))
+  if ( tail(vec, 1) != to ) {
+    return(c(vec, to))
+  } else {
+    return(vec)
   }
-  
-  Ntries <- seqlast(from=0, to=LxB, by = 50000)
+}
+
+Ntries <- seqlast(from=0, to=LxB, by = 50000)
 
 #####################################################################
 # 5.Extract CSQ data and save to file 50000 lines at a time 
 #####################################################################  
-  print('Create new data table')
-  
-  # start the loop
+print('Create new data table')
+
+# start the loop
 for (i in 1:(length(Ntries)-1)){
-    #Extract the CSQ information and save as a list
-    ann <- extract.info(inputFile[(Ntries[i]+1):Ntries[i+1]], element='CSQ', as.numeric=F)
-    annsplit<-sapply(ann, function(x) strsplit(x, "\\||,"))
-    ncounts<- sapply(annsplit, length)
+  #Extract the CSQ information and save as a list
+  ann <- extract.info(inputFile[(Ntries[i]+1):Ntries[i+1]], element='CSQ', as.numeric=F)
+  annsplit<-sapply(ann, function(x) strsplit(x, "\\||,"))
+  ncounts<- sapply(annsplit, length)
   if (opts$canonical){
     # run this section if we only want the canonical sample
     # Note this section only remains due to previous coding decisions. Can decide to delete
@@ -156,37 +156,37 @@ for (i in 1:(length(Ntries)-1)){
     # rename the columns
     colnames(AllData)=SNames[1:ncol(AllData)]    
   }
-   print('Merge CSQ data')
-   AllData=cbind(Tumor_Sample_Barcode=opts$sampleName, vcfFix[(Ntries[i]+1):Ntries[i+1], ], AllData, VAFd[(Ntries[i]+1):Ntries[i+1], ])
-   
-   print('Tidying HGVSp HGVSc')
-   ## Create HGVSp short:
-   xa=strsplit(AllData[ ,match("HGVSp", colnames(AllData))], ":p\\.")
-   ax2=sapply(xa, function(x) x[2])
-   ax2=gsub("%3D", "=", ax2)
-   ax3=ax2 # keep the original version for gsubing later
-   
-   for (i in 1:nrow(AAlist)){
-     ax3=gsub(AAlist$Three.letter.symbol[i], AAlist$One.letter.symbol[i], ax3)
-   }
+  print('Merge CSQ data')
+  AllData=cbind(Tumor_Sample_Barcode=opts$sampleName, vcfFix[(Ntries[i]+1):Ntries[i+1], ], AllData, VAFd[(Ntries[i]+1):Ntries[i+1], ])
   
-   # define additional columns:
-   # a. HGVSp ensembl
-   HGVSp_ENS=AllData[ ,match("HGVSp", colnames(AllData))]
-   # b. HGVSp original
-   HGVSp=ax2
-   # c. HGVSp short - needed for oncokb look-up
-   ## change the sequence information
-   HGVSp_Short=paste("p.", ax3 , sep="")
-   HGVSp_Short[which(is.na(ax3))]=NA
-   # d. HGVSc ensembl
-   HGVSc_ENS=AllData[ ,match("HGVSc", colnames(AllData))]
-   HGVSc=sapply(strsplit(AllData[, "HGVSc"], ":"), function(x) x[2])
-   print('combine all information and white to file')
-   Tx=AllData[ ,-match(c("HGVSc", "HGVSp"), colnames(AllData))]
-   AllData=cbind(Tx,HGVSp_Short, HGVSp_ENS, HGVSp,HGVSc_ENS, HGVSc)
-   colnames(AllData)[which(colnames(AllData)=="SYMBOL")]="Hugo_Symbol"
-   sprintf('write to file. Table dimensions is %s rows by %s columns', nrow(AllData), ncol(AllData))
-   write.table(AllData, file=opts$outputfile, sep="\t", row.names=F, quote=F, append = T,
-               col.names=!file.exists(opts$outputfile))
+  print('Tidying HGVSp HGVSc')
+  ## Create HGVSp short:
+  xa=strsplit(AllData[ ,match("HGVSp", colnames(AllData))], ":p\\.")
+  ax2=sapply(xa, function(x) x[2])
+  ax2=gsub("%3D", "=", ax2)
+  ax3=ax2 # keep the original version for gsubing later
+  
+  for (i in 1:nrow(AAlist)){
+    ax3=gsub(AAlist$Three.letter.symbol[i], AAlist$One.letter.symbol[i], ax3)
+  }
+  
+  # define additional columns:
+  # a. HGVSp ensembl
+  HGVSp_ENS=AllData[ ,match("HGVSp", colnames(AllData))]
+  # b. HGVSp original
+  HGVSp=ax2
+  # c. HGVSp short - needed for oncokb look-up
+  ## change the sequence information
+  HGVSp_Short=paste("p.", ax3 , sep="")
+  HGVSp_Short[which(is.na(ax3))]=NA
+  # d. HGVSc ensembl
+  HGVSc_ENS=AllData[ ,match("HGVSc", colnames(AllData))]
+  HGVSc=sapply(strsplit(AllData[, "HGVSc"], ":"), function(x) x[2])
+  print('combine all information and white to file')
+  Tx=AllData[ ,-match(c("HGVSc", "HGVSp"), colnames(AllData))]
+  AllData=cbind(Tx,HGVSp_Short, HGVSp_ENS, HGVSp,HGVSc_ENS, HGVSc)
+  colnames(AllData)[which(colnames(AllData)=="SYMBOL")]="Hugo_Symbol"
+  sprintf('write to file. Table dimensions is %s rows by %s columns', nrow(AllData), ncol(AllData))
+  write.table(AllData, file=opts$outputfile, sep="\t", row.names=F, quote=F, append = T,
+              col.names=!file.exists(opts$outputfile))
 }
