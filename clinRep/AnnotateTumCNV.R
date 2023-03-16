@@ -1,7 +1,7 @@
 #!/usr/bin/Rscript
 " This is a script to tidy up tumour files which have been annotated with funcotator instead of annotSV
 usage: \n 
-AnnotateTumCNV.R [--tsv=<file> --outputname=<string> --MSigDB=<file> --GTex=<file> --CosmicList=<file> --AddList=<file> --pathwayList=<string> --Tissue=<string> ]
+AnnotateTumCNV.R [--tsv=<file> --outputname=<string> --MSigDB=<file> --GTex=<file> --CosmicList=<file> --AddList=<file> --pathwayTerm=<string> --pathwayList=<file> --Tissue=<string> ]
 \n Options:
 \n --tsv=<file> tsv from functotator.
 \n --outputname=<string> output string
@@ -9,7 +9,8 @@ AnnotateTumCNV.R [--tsv=<file> --outputname=<string> --MSigDB=<file> --GTex=<fil
 \n --GTex=<file> GTex Expression Data
 \n --CosmicList=<file> File of Cosmic Related Genes
 \n --AddList=<file> List of additionalgene lists [default=NULL]
-\n --pathwayList=<string>
+\n --pathwayTerm=<string>
+\n --pathwayList=<file>
 \n --Tissue=<string> Tissue type " -> doc
 
 ## Include the pathway List!
@@ -118,14 +119,14 @@ InputData=read.delim(opts$tsv)
     InputData$GenesOfInterest=NA
   }
   
-  sprintf('Find genes involved in %s pathway', opts$pathwayList)
+  sprintf('Find genes involved in %s pathway', opts$pathwayTerm)
   ## Pathways of Interest
   #PWtable=read.csv("~/Documents/ER_pilot/annotations//PathwayList.csv")
-  PWtable=read.csv("/annotFiles/PathwayList.csv")
-  nx=which(colnames(PWtable)==opts$pathwayList)
+  PWtable=read.csv(opts$pathwayFile)
+  nx=which(colnames(PWtable)==opts$pathwayTerm)
   nx=setdiff(as.vector(PWtable[ ,nx]), "")
   ex1=unique(unlist(sapply(nx, function(x) grep(x, InputData$Pathways))))
-  InputData$GenesOfInterest[ex1]=ifelse(is.na(InputData$GenesOfInterest[ex1]), opts$pathwayList, paste(InputData$GenesOfInterest[ex1], opts$pathwayList))
+  InputData$GenesOfInterest[ex1]=ifelse(is.na(InputData$GenesOfInterest[ex1]), opts$pathwayTerm, paste(InputData$GenesOfInterest[ex1], opts$pathwayTerm))
   
   print('Add Cosmic Data')
   ## CosmicData
