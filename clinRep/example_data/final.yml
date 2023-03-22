@@ -1,0 +1,15 @@
+Sample: ER099_MEL1
+Age: XX
+Tumour: Melanoma XX
+Treatment: nivolumab
+Response status: 
+Metastasis: 
+TreatmentKeywords: Immunotherapy
+SNVsummary: ER099_MEL4_germline_oncokb.variantSummary.filt.maf
+SNVHallmark: ER099_MEL4_germline_oncokb.PathwayVariants.filt.maf
+SNVVUS: ER099_MEL4_germline_oncokb.pathogenicVUS.filt.maf
+SNVdrugresponse: ER099_MEL4_germline_oncokb.drugprotective.filt.maf
+SNVcancerRes: ER099_MEL4_germline_oncokb.cancerVariants.filt.maf
+SNVACMG: ER099_MEL4_germline_oncokb.ACMG.filt.maf
+gCNVAnnotSV: ER095_MEL3N.CNV.formated.tsv
+gSVAnnotSV: ER052.manta.SV.formated.tsv

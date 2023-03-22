@@ -5,18 +5,17 @@ Here we report any genes which could be impacted by a combination of SNVs, CNV a
 
 ## combine all SNVs together
 STerms=c("SYMBOL", "rsID", "CHROM", "POS", "HGVSp", "Consequence", "gnomAD.AF", "ClinVar.Sig","ClinVar.Disease", "ProteinDomain", "CancerGeneCensus.Tier","CancerMutationCensus.Tier")
-allSNV=rbind(cbind(D2[ , STerms], class="Cosmic"),cbind(D3[ , STerms], class="Pathway"), cbind(D4[ , STerms], class="Drug"), cbind(D5[ , STerms], class="VUS")) 
-
-if (nrow(D6)>0){
-  allSNV=rbind(allSNV,cbind(D6[ , STerms], class="ACMG"))
-}
+allSNV=rbind(D2[, STerms], D3[ ,STerms], D4[ ,STerms], D5[ ,STerms], D6[ ,STerms])
+allSNV$class=c(rep("Cosmic", nrow(D2)), rep("Pathway", nrow(D3)),
+                rep("Drug", nrow(D4)), rep("VUS", nrow(D5)), rep("ACMG", nrow(D6)))
 
 rmIdx=which(allSNV$Consequence%in%c("synonymous_variant", "intergenic_variant"))
-allSNV=allSNV[-rmIdx, ]
+allSNV=allSNV[setdiff(1:nrow(allSNV), rmIdx), ]
 
 ##,  )
 # combine the SVs
-allSV=rbind(cbind(PGenesSVfilt, class="Pathway"), cbind(CGenesSVfilt, class="Cosmic"))
+allSV=rbind(PGenesSVfilt, CGenesSVfilt)
+allSV$class=c(rep("Pathway", nrow(PGenesSVfilt)),rep("Cosmic", nrow(CGenesSVfilt)))
 
 ##venn(list(SNV=allSNV$SYMBOL, SV=allSV$GENE, CNV=T1b$Gene_name))
 
@@ -27,7 +26,11 @@ t2=paste0("SNV ", allSNV$Consequence)
 
 
 ## centralise the names of the samples
-allSNVb=data.frame(SYMBOL=allSNV$SYMBOL, Genomic.Pos=t1, Location=allSNV$ProteinDomain, PopFreq=allSNV$gnomAD.AF, VariantType=t2,Pathogenicity=allSNV$ClinVar.Sig, Disease=allSNV$ClinVar.Disease, VariantCategory=allSNV$class)
+allSNVb=data.frame(SYMBOL=allSNV$SYMBOL, Location=allSNV$ProteinDomain, PopFreq=allSNV$gnomAD.AF, VariantType=t2,Pathogenicity=allSNV$ClinVar.Sig, Disease=allSNV$ClinVar.Disease, VariantCategory=allSNV$class)
+
+if (nrow(allSNVb)>0){
+  allSNVb$Genomic.Pos=t1
+}
 
 
 t3=ifelse(allSV$Haploinsufficiency>1 & allSV$Haploinsufficiency<=3, "Haploinsufficient", 
@@ -35,8 +38,15 @@ t3=ifelse(allSV$Haploinsufficiency>1 & allSV$Haploinsufficiency<=3, "Haploinsuff
                  ifelse(allSV$PathogenicSource!="", "Possibly pathogenic", 
                  ifelse(allSV$BenignSource!="", "Possibly benign", "unknown"))))
 
-allSVb=data.frame(SYMBOL=allSV$GENE, Genomic.Pos= allSV$SV_ID, Location=allSV$Location, PopFreq=allSV$`Pop Freq`, VariantType=paste0("SV ", allSV$TYPE),Pathogenicity=t3,   Disease=allSV$OMIM, VariantCategory=allSV$class)
+# bug in binding when there are 0 rows
+allSVb=data.frame(SYMBOL=allSV$GENE, Genomic.Pos= allSV$SV_ID, Location=allSV$Location, PopFreq=allSV$`Pop Freq`, Pathogenicity=t3,   Disease=allSV$OMIM, VariantCategory=allSV$class)
 
+if (nrow(allSVb)>0){
+ allSVb$VariantType=paste0("SV ", allSV$TYPE)
+}
+
+# put in a check to make sure dimension is big enough
+if (nrow(T1b)>0){
 t4=paste0(T1b$CHROM, ":", T1b$START,"-", T1b$END)
 t5=ifelse(T1b$Haploinsufficiency>1 & T1b$Haploinsufficiency<=3, "Haploinsufficient", 
           ifelse(T1b$Triplosensitivity>1 & T1b$Triplosensitivity<=3, "Triplosensitive", 
@@ -44,6 +54,13 @@ t5=ifelse(T1b$Haploinsufficiency>1 & T1b$Haploinsufficiency<=3, "Haploinsufficie
                  ifelse(T1b$BenignSource!="", "Possibly benign", "unknown"))))
 
 allCNVb=data.frame(SYMBOL=T1b$Gene_name, Genomic.Pos=t4, Location=T1b$Location, PopFreq=T1b$Pop.Freq, VariantType=paste0("CN ", T1b$CN),Pathogenicity=t5, Disease=T1b$OMIM, VariantCategory=ifelse(T1b$Cosmic=="", "Pathway", "Cosmic"))
+}else{
+  print('no variants')
+  CNames=c("SYMBOL", "Genomic.Pos", "Location", "PopFreq", 
+                      "VariantType","Pathogenicity", "Disease", "VariantCategory")
+  allCNVb=data.frame(matrix(ncol=length(CNames), nrow=0))
+  colnames(allCNVb)=CNames
+}
 
 venn(list(SNV=unique(allSNVb$SYMBOL), SV=unique(allSVb$SYMBOL), CNV=unique(allCNVb$SYMBOL)))
 ```
@@ -54,11 +71,11 @@ venn(list(SNV=unique(allSNVb$SYMBOL), SV=unique(allSVb$SYMBOL), CNV=unique(allCN
 a1=intersect(allSNVb$SYMBOL,allSVb$SYMBOL)
 a2=intersect(allSNVb$SYMBOL,allCNVb$SYMBOL)
 a3=intersect(allSVb$SYMBOL,allCNVb$SYMBOL)
-a4=intersect(a1, a2)
+a4=unique(c(a1, a2))
 
-n1=allSNVb[which(allSNVb$SYMBOL%in%a1), ]
-n2=allSVb[which(allSVb$SYMBO%in%a1), ]
-n3=allSNVb[which(allCNVb$SYMBOL%in%a2), ]
+n1=allSNVb[which(allSNVb$SYMBOL%in%a4), ]
+n2=allSVb[which(allSVb$SYMBO%in%a4), ]
+n3=allCNVb[which(allCNVb$SYMBOL%in%a4), ]
 
 Alldf1=rbind(n1, n2, n3)
 
@@ -73,7 +90,6 @@ Includes: `r sort(print(unique(Alldf1$SYMBOL)))`
 **Genes with both SVs and CNVs**
 
 ```{r}
-
 n1b=allCNVb[which(allCNVb$SYMBOL%in%a3), ]
 n2b=allSVb[which(allSVb$SYMBOL%in%a3), ]
 

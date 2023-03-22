@@ -1,0 +1,20 @@
+Sample: ATEST_NA12878_small_1x
+Age: NA
+Tumour: NA
+Treatment: NA
+Patient Summary: Healthy control 
+Response status: NA
+Metastasis: NA
+Treatment Keywords: Immunotherapy
+Tissue: skin
+Analysis Mode: Germline
+SNVsummary: ${snvsummary}
+SNVHallmark: ${snvhallmark}
+SNVVUS: ${snvvus}
+SNVdrugresponse: ${snvdrug}
+SNVcancerRes: ${snvcancer}
+SNVACMG: ${snvacmg}
+gCNVAnnotSV: ${cnvAnnot}
+gSVAnnotSV: ${svAnnot}
+gSVsplitAnnotSV: ${SVsplit}
+ploidyFile: contig_ploidy.tsv

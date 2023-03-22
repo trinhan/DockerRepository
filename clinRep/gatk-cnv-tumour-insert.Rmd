@@ -1,0 +1,173 @@
+#### Overview of CNV data
+
+```{r, eval=T, message=F}
+library(karyoploteR)
+```
+
+```{r}
+## Filter out gains vs del
+gain=which(AnnotCNV2$Segment_Mean>=paramfile$CNVfcHigh)
+homloss=which(AnnotCNV$Segment_Mean<=paramfile$CNVfcLow)
+```
+
+
+```{r,fig.height=6, message=F}
+gainMat <- GRanges(seqnames=AnnotCNV$chr[gain], ranges=IRanges(start=AnnotCNV$start[gain],
+                      end=AnnotCNV$end[gain]), AF=AnnotCNV$Segment_Mean[gain])
+
+if (length(gainMat)>0){
+  gainMat$AFcol=brewer.pal(5, "Reds")[cut(gainMat$AF, c(0,  2, 6, 20, 100))]
+}
+  
+#gainMat$AFcol=ifelse(gainMat$path!="", "#67000d", gainMat$AFcol)
+
+# hetlossMat <-  GRanges(seqnames=paste0("chr",AnnotCNV[hetloss, 2]), ranges=IRanges(start=AnnotCNV[hetloss, 3], end=AnnotCNV[hetloss, 4]), path=AnnotCNV$Psource[hetloss],AF=ifelse(is.na(AnnotCNV$AF[hetloss]), 1, 1-AnnotCNV$AF[hetloss]))
+# 
+# hetlossMat$AFcol=ifelse(hetlossMat$path!="", "#006d2c", hetlossMat$AFcol)
+
+homlossMat<- GRanges(seqnames=AnnotCNV$chr[homloss], ranges=IRanges(start=AnnotCNV$start[homloss],
+                      end=AnnotCNV$end[homloss]), AF=AnnotCNV$Segment_Mean[homloss]) 
+
+if (length(homlossMat)>0){
+ homlossMat$AFcol=brewer.pal(5, "Greens")[cut(homlossMat$AF, c(0,  -2, -6, -20,-100))]
+}
+
+
+UniqueGenesA=unique(unlist(strsplit(AnnotCNV2$GenesOfInterest[c(gain, homloss)], ",")))
+UniqueGenesA=gsub(",","", UniqueGenesA)
+UniqueGenesB=unique(unlist(strsplit(AnnotCNV2$Cosmic[c(gain,homloss)], ", ")))
+UniqueGenesC=AnnotCNV2$genes[grep(data$TreatmentKeywords, AnnotCNV2$GenesOfInterest)]
+Tx3=na.omit(unique(c(UniqueGenesA, UniqueGenesB, UniqueGenesC)))
+Tx3=setdiff(Tx3, data$TreatmentKeywords)
+
+ if (length(Tx3)>0){
+ genes=genesAll[na.omit(match(Tx3, genesAll$hgnc_symbol))]
+  }
+
+kp <- plotKaryotype(chromosomes=c("autosomal"), genome="hg38",plot.type=2)
+ax=tryCatch({kpPlotRegions(kp, gainMat, col=gainMat$AFcol,data.panel = 1)}, error=function(e){NULL})
+ax=tryCatch({kpPlotRegions(kp, homlossMat, col=homlossMat$AFcol,data.panel = 2)}, error=function(e){NULL})
+ax=tryCatch({kpPlotMarkers(kp, data=genes, labels=genes$hgnc_symbol, text.orientation = "horizontal", r1=0.75, cex=0.5, adjust.label.position = FALSE)}, error=function(e){NULL})
+
+```
+
+#### Genes/Pathways of Interest
+
+The following plot shows regions of gains or losses, colored by:
+
+* <span style="color: red;"> Cosmic Cancer Gene (Tier 1 or 2 oncogene or tumor suppressor gene) </span>
+* <span style="color: blue;"> Impacts the pathway of interest: `r data$TreatmentKeywords`, either through MSigDB annotation or user-defined gene list </span>
+* <span style="color: purple;"> Gene is both in Cosmic List and is a gene of interest list in `r data$TreatmentKeywords` pathway </span>
+
+
+```{r, fig.height=3.5}
+
+chrNames=c(paste("chr", c(1:22), sep=""), "chrX", "chrY")
+
+gList=genes$hgnc_symbol[which(seqnames(genes)%in%chrNames)]
+
+lx1split=strsplit(AnnotCNV2$genes, ",")
+
+lx1splitLength=sapply(lx1split, length)
+
+lx1=which(lx1split%in%gList)
+
+temp1=AnnotCNV2[lx1, c("chr", "start", "end","Segment_Mean", "Segment_Call", "GenesOfInterest", "Cosmic", "genes", "GTex", "Pathways")]
+temp1$GenesOfInterest[grep(data$TreatmentKeywords, temp1$GenesOfInterest)]=temp1$genes[grep(data$TreatmentKeywords, temp1$GenesOfInterest)]
+
+ContRun=ifelse(nrow(temp1)>1, T, F)
+```
+
+
+```{r, eval=ContRun}
+
+tx2=grep(",", temp1$GenesOfInterest)
+
+if (length(tx2)>0){
+  Input2=strsplit(temp1$GenesOfInterest[tx2], ",") 
+  lx3=sapply(Input2, length)
+  tempMat=temp1[tx2, ]
+  tempMat2=tempMat[rep(seq_len(nrow(tempMat)), times = lx3), ]
+  tempMat2$GenesOfInterest=unlist(Input2)
+  temp1=rbind(temp1[-tx2, ], tempMat2)
+}
+
+tx3=grep(",", temp1$Cosmic)
+
+if (length(tx3)>0){
+  Input2=strsplit(temp1$GenesOfInterest[tx3], ",") 
+  lx3=sapply(Input2, length)
+  tempMat=temp1[tx3, ]
+  tempMat2=tempMat[rep(seq_len(nrow(tempMat)), times = lx3), ]
+  tempMat2$GenesOfInterest=unlist(Input2)
+  temp1=rbind(temp1[-tx3, ], tempMat2)
+}
+
+temp1=unique(temp1)
+#temp1$Gene=ifelse(temp1$GenesOfInterest=="", temp1$Cosmic, ifelse(temp1$Cosmic=="", temp1$GenesOfInterest, paste(temp1$GenesOfInterest, temp1$Cosmic)))
+# temp1$Gene=gsub(paste0(data$TreatmentKeywords), "", temp1$Gene)
+# temp1$Gene=gsub(" ", "", temp1$Gene)
+#temp1$Gene[which(temp1$Gene=="")]=NA
+temp1$Col=ifelse((temp1$Cosmic!=""&temp1$GenesOfInterest!=""),"purple", ifelse(temp1$Cosmic!="", "red", "blue") )
+
+
+#temp1$chr=factor(temp1$chr, levels=c(1:22, "X", "Y"))
+temp1=temp1[order(temp1$chr,temp1$start), ]
+
+# tempx=by(temp1$CN, temp1$Gene_name, mean)
+# tempx2=stack(round(tempx))
+# 
+#  checkdup=which(duplicated(temp1[ ,c(4:7)]))
+#  if (length(checkdup)>0){
+#    temp2=temp1[-which(duplicated(temp1[ ,c(4:7)])), ]
+#    temp2$CN=(tempx2$values[ match(temp2$Gene_name, tempx2$ind)])
+#    #temp2$CN[which(temp2$CN==2)]=1
+#    temp2$CN=factor(temp2$CN)
+#  } else {
+#    temp2=temp1
+#  }
+
+
+temp1$CN=cut(temp1$Segment_Mean, breaks=c(-100,-12,-6,-3 ,paramfile$CNVfcLow, paramfile$CNVfcHigh, 3, 6, 12, 100))
+rm1=which(!is.na(temp1$CN))
+temp2=temp1[rm1, ]
+
+colB=temp2$Col
+
+ggplot(temp2, aes(x=genes, y=1, fill=CN))+geom_tile()+theme(axis.text.x = element_blank(), axis.ticks.x = element_blank())+scale_fill_manual(values = brewer.pal(9, "RdBu")[9:1])+expand_limits(y = 0.25)+geom_text(aes(colour = colB, label = genes), y = 0.35, angle=90)+facet_grid(~chr, space="free", scales="free")+scale_colour_manual(values = c("blue", "purple", "red"), guide = F)
+```
+
+
+#### Gene-specific Analysis
+
+Genes which are Cancer-COSMIC related, or have relevance to the pathway of interest (`r data$TreatmentKeywords`)
+
+* <span style="color: red;"> Gains or insertions (top) </span>
+* <span style="color: blue;"> Deletions (Bottom) </span>
+* The following CNV regions are filtered to retain those with a gain (log2FC > `r paramfile$CNVfcHigh`) or loss (log2FC < `r paramfile$CNVfcLow`) and a minimum number of probes:
+
+**Multi-gene variants**
+
+```{r}
+temp1=temp1[ ,-which(colnames(temp1)=="CN")]
+nxlength=lx1splitLength[lx1]
+Mglist=which(nxlength>1)
+MGexist=length(Mglist)>0
+```
+
+`r ifelse(MGexist==FALSE, print('There are no CNVs spanning multiple genes'), print('The CNVs spanning multiple genes are shown below:'))`
+
+```{r, eval=MGexist}
+DT::datatable(temp1[Mglist, ], rownames=F, filter = 'top', class='cell-border stripe',extensions="Buttons", options=list(dom="Bfrtip",scoller = TRUE, pageLength = 5,  buttons=c(I('colvis'),'csv', 'excel')))
+
+```
+
+
+**Gene level results**
+
+```{r}
+Mglist=which(nxlength==1)
+T1b=temp1[Mglist, ]
+DT::datatable(T1b, rownames=F, filter = 'top', class='cell-border stripe',extensions="Buttons", options=list(dom="Bfrtip",scoller = TRUE, pageLength = 5,  buttons=c(I('colvis'),'csv', 'excel')))
+
+```
