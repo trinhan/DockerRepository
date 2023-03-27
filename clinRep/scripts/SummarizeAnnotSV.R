@@ -55,7 +55,7 @@ nrowCheck=(nrow(InputData)<=1)
 }
 
 ############################################
-#3. Filter out Encode Blacklisted regions - runTag
+#3. Filter out Encode Blacklisted regions - runTag; and 
 ############################################
 
 # Remove all regions which are blacklisted and have annotations
@@ -66,6 +66,15 @@ keepidx=which((InputData$ENCODE_blacklist_characteristics_left==""|is.na(InputDa
 InputData=InputData[keepidx, ]
 print(paste0("Number of rows after Encode review:", nrow(InputData)))
 }
+
+# Remove all regions which are blacklisted and have annotations
+# check if this still works?
+
+if (runTag){
+  print('Tidy up OMIM tags')
+  InputData$OMIM_morb=ifelse(InputData$OMIM_morbid=="yes", "morbid", ifelse(InputData$OMIM_morbid_candidate=="yes", "candidate", "no"))
+}
+
 
 ############################################
 #4. Filter out regions which do not fulfil the ACMG score cut-off.
@@ -265,6 +274,7 @@ if (opts$CNV){
     print(paste0("Number of Annotated CNV rows:", nrow(InputData)))
     write.table(InputData, file=paste(opts$outputname, ".CNV.formated.tsv", sep=""), sep="\t", row.names = F, quote = F)
   } else {
+    ## decide whether we need to split this file??
     InputDataFull=InputData[InputData$Annotation_mode=="full", ]
     print(paste0("Number of SV rows in full:", nrow(InputDataFull)))
     InputDataSplit=InputData[InputData$Annotation_mode=="split", ]

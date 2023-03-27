@@ -38,6 +38,7 @@ library(circlize)
 library(plotly)
 library(RColorBrewer)
 library(biomaRt)
+library(karyoploteR)
 
 #########
 ## 1. Requirements in the YAML file:
@@ -53,12 +54,15 @@ library(biomaRt)
 knitr::opts_chunk$set(echo = FALSE, warning = F, fig.width=12, fig.height=8, warning = F)
 data=read_yaml("final.yml")
 paramfile=read_yaml("parameter.json")
+source("scripts/FilterCNVs.R")
+source("scripts/CreateGRangesData.R")
 load("./annotFiles/ensembl_granges_genes_290722.RData")
 ```
 
 ### Sample Information
  
 ```{r, warning=FALSE}
+# Print out patient information
 x1=which(names(data)=="SNVsummary")
 clinSum=unlist(data[1:(x1-1)])
 kable((clinSum), col.names = c("Patient Information"))
@@ -69,7 +73,7 @@ kable((clinSum), col.names = c("Patient Information"))
 ## Germline Variants
 
 ```{r evaluate-SNVs-exist}
-# Check whether SNV data exists
+# Check whether SNV data exists in order to run the child .Rmd
 runSNVs=ifelse(is.null(data$SNVsummary), F, T)
 ```
 
@@ -81,18 +85,20 @@ runSNVs=ifelse(is.null(data$SNVsummary), F, T)
 ## Copy Number Variants
 
 ```{r evaluate-CNVs-exist}
+## Calculate whether the AnnotCNV file exists and is populated
 RunCV=ifelse(is.null(data$gCNVAnnotSV), F, T)
 EvalCNV=RunCV
+EvalCNV2=F
+
+if (EvalCNV){
+  opts=list(tsv=data$gCNVAnnotSV, CNlow=1, CNhigh=3, ACMGcutoff=4)
+  AnnotCNV=FilterCNVs(opts) ## run this outside?
+  EvalCNV2=ifelse(nrow(AnnotCNV$T1)>0, T, F)
+}
 ```
 
 `r ifelse(RunCV==F, print('CNV data not available for this sample'), print(""))`
-
-```{r evaluate-CNV-length, eval=RunCV}
-AnnotCNV=read.delim(data$gCNVAnnotSV)
-EvalCNV=ifelse(nrow(AnnotCNV)>0, T, F)
-```
-
-`r ifelse(EvalCNV==F, print('Analysis did not return any CNVs'), print(""))`
+`r ifelse(EvalCNV2==F, print('Analysis did not return any CNVs'), print(""))`
 
 ```{r child = 'gatk-cnv-germline-insert.Rmd', eval=EvalCNV}
 ```
@@ -111,7 +117,7 @@ EvalSV=RunSV
 # Check whether the SV file has length >0
 AnnotSV2=read.delim(data$gSVAnnotSV)
 ## remove:  &
-AnnotSV=AnnotSV2[which(AnnotSV2$ACMG_class>=paramfile$AnnotSVACMGcutoff & AnnotSV2$MeanVAF>=paramfile$SVVAF), ]
+#AnnotSV=AnnotSV2[which(AnnotSV2$ACMG_class>=paramfile$AnnotSVACMGcutoff & AnnotSV2$MeanVAF>=paramfile$SVVAF), ]
 EvalSV=ifelse(nrow(AnnotSV)>0, T, F)
 ```
 
@@ -154,7 +160,6 @@ RunOverviewCNV=ifelse(EvalSV==F & EvalCNV==T, T, F)
 
 ```{r child='overview-germline-SNV-SV.Rmd', eval=RunOverviewSV}
 ```
-
 
 ```{r child='overview-germline-CNV-SNV.Rmd', eval=RunOverviewCNV}
 ```

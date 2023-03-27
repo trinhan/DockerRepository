@@ -9,7 +9,9 @@ Summary of the number of variants:
 * Minimum number of supporting paired reads `r paramfile$SVPRfilter`
 
 ```{r, message=FALSE}
-suppressMessages(library(karyoploteR))
+SVTab
+
+
 ## Filter out gains vs del
 gain=which(AnnotSV$SV_type=="DUP")
 homloss=which(AnnotSV$SV_type=="DEL")
@@ -35,49 +37,14 @@ The following variants are color coded:
 Cosmic related genes or genes appearing in user defined list of interest are indicated
 
 ```{r, fig.height=5, message=FALSE}
-CreateGRangesData=function(AnnotT, Col, Ncheck){
-  gMat <- GRanges(seqnames=paste0("chr",AnnotT[ ,2]),ranges=IRanges(start=AnnotT[, 3], end=AnnotT[, 4]),names=AnnotT$AnnotSV_ID, path=AnnotT$Psource, AF=AnnotT$MeanVAF)
-  gMat$AFcol=brewer.pal(6, Col)[cut(gMat$AF, c(0,0.25, 0.5, 0.8, 0.9,  1))]
-  tx1=as.matrix(dist(start(gMat)))
-  tx2=as.matrix(dist(end(gMat)))
-  ReviewThese=which(tx1<Ncheck & tx2<Ncheck, arr.ind=T)
-  ReviewThese=ReviewThese[which(ReviewThese[ ,1]<ReviewThese[ ,2]), ]
-  if (length(ReviewThese)>0 ){
-    Tx2=which(ReviewThese[ ,1]!=ReviewThese[ ,2])
-    tx3=ReviewThese[ which(ReviewThese[ ,1]!=ReviewThese[ ,2]), ]
-    CheckChr=which(seqnames(gMat)[tx3[ ,1]]==seqnames(gMat)[tx3[ ,2]])
-    tx4=tx3[CheckChr, ]
-  ## Merge the samples
-    for (i in 1:nrow(tx4)){
-      end(gMat[tx4[i, 1]])=end(gMat[tx4[i, 2]]) 
-      gMat$AF[tx4[i, 1]]=mean(gMat$AF[tx4[i, ]])
-    }
-  gMat=gMat[-tx4[,2 ]]
+
+gainMat2=tryCatch({CreateGRangesData(AnnotSV[c(gain, ins), ], "Reds",T, 500)}, error=function(e){GRanges()})
+lossMat2=tryCatch({CreateGRangesData(AnnotSV[homloss, ], "Blues",T, 500)}, error=function(e){ GRanges()})
+invMat2=tryCatch({CreateGRangesData(AnnotSV[c(inv, bnd)], "Green",T, 500)}, error=function(e){GRanges(names=NULL, path=NULL, AF=NULL)})
+
+if (length(S2$Gene_name)>1){
+  genes=genesAll[na.omit(match(S2$Gene_name, genesAll$hgnc_symbol))]
 }
-  return(gMat)  
-}
-gainMat2=tryCatch({CreateGRangesData(AnnotSV[c(gain, ins), ], "Reds", 500)}, error=function(e){
-  GRanges()})
-lossMat2=tryCatch({CreateGRangesData(AnnotSV[homloss, ], "Blues", 500)}, error=function(e){
-  GRanges()})
-invMat2=tryCatch({CreateGRangesData(AnnotSV[c(inv, bnd)], "Green", 500)}, error=function(e){
-  GRanges(names=NULL, path=NULL, AF=NULL)})
-
-#lx1=which((AnnotSV$GenesOfInterest!=""| AnnotSV$Cosmic!="") & AnnotSV$ACMG_class>=3 & (AnnotSV$AF<=0.1 | is.na(AnnotSV$AF)) & AnnotSV$MeanVAF>0.25)
-
-UniqueGenesA=unique(unlist(strsplit(AnnotSV$GenesOfInterest, " ")))
-UniqueGenesA=unique(unlist(strsplit(UniqueGenesA, ",")))
-UniqueGenesB=unique(unlist(strsplit(AnnotSV$Cosmic, ", ")))
-UniqueGenesC=AnnotSV$Gene_name[grep(data$TreatmentKeywords, AnnotSV$GenesOfInterest)]
-
-Tx3=na.omit(unique(c(UniqueGenesA, UniqueGenesB, UniqueGenesC)))
-Tx3=setdiff(Tx3, data$TreatmentKeywords)
-
-# ensembl <- useEnsembl(biomart="ensembl", dataset="hsapiens_gene_ensembl")
-# genes <- toGRanges(getBM(attributes=c('chromosome_name', 'start_position', 'end_position', 'hgnc_symbol'),
-#                filters = 'hgnc_symbol', values =Tx3, mart = ensembl))
-# seqlevelsStyle(genes) <- "UCSC"
-genes=genesAll[na.omit(match(Tx3, genesAll$hgnc_symbol))]
 
 kp <- plotKaryotype(chromosomes=c("autosomal"), genome="hg38", plot.type=2)
 ax=tryCatch({kpPlotRegions(kp, gainMat2, col=gainMat2$AFcol,data.panel = 1)}, error=function(e){NULL})
@@ -86,11 +53,10 @@ ax=tryCatch({kpPlotRegions(kp, invMat2, col=invMat2$AFcol,data.panel = 3)}, erro
 ax=tryCatch({kpPlotMarkers(kp, data=genes, labels=genes$hgnc_symbol, text.orientation = "horizontal",
               r1=0.75, cex=0.5, adjust.label.position = FALSE)}, error=function(e){NULL})
 ```
-
+## Genes/Pathways of Interest
 
 ```{r, fig.height=3.5, eval=F}
 lx1=which((AnnotSV$GenesOfInterest!=""| AnnotSV$Cosmic!="") & AnnotSV$ACMG_class>=paramfile$AnnotSVACMGcutoff & (AnnotSV$AF<=0.1 | is.na(AnnotSV$AF)) & AnnotSV$MeanVAF>0.25)
-
 ## Visualise the genes of interest?
 temp1=AnnotSV[lx1, c("SV_chrom", "SV_start", "SV_end", "SV_type", "GenesOfInterest", "Cosmic")]
 
@@ -150,15 +116,14 @@ ggplot(temp2, aes(x=Gene, y=1, fill=SV_type))+geom_tile()+  theme(axis.text.x = 
 
 
 ```{r}
-lx1=which((AnnotSV$GenesOfInterest!=""| AnnotSV$Cosmic!="") & AnnotSV$ACMG_class>=paramfile$AnnotSVACMGcutoff & (AnnotSV$AF<=paramfile$OverallGnomad | is.na(AnnotSV$AF)) & AnnotSV$MeanVAF>=paramfile$SVVAF)
-ScolnamesTable=cbind(c("SV_chrom", "SV_start", "SV_end","SV_type", "SV_length", "ACMG_class", "AF", "GT","MeanVAF","SRVAF", "GenesOfInterest","Cosmic", "Pathways","GTex", "Gene_name",  "Pheno"), c("CHROM", "START", "END", "TYPE", "SV_length", "ACMG", "Pop Freq", "GT", "VAF", "SR-VAF", "GenesOfInterest", "Cosmic", "Pathways", "GTex", "Gene Names", "CLinVar Phenotypes"))
+idx=which(T1$GenesOfInterest!=""|T1$Cosmic!="")
+MGexist=ifelse(length(idx)>0, T, F)
+```
 
-midx=match(ScolnamesTable[ ,1], colnames(AnnotSV))
+`r ifelse(MGexist==F, print('There are no CNVs spanning multiple genes'), print('The CNVs spanning multiple genes are shown below:'))`
 
-T1=AnnotSV[lx1, na.omit(midx)]
-colnames(T1)=ScolnamesTable[which(!is.na(midx)) ,2]
-
-DT::datatable(T1, rownames=F, filter = 'top', class='cell-border stripe',extensions="Buttons", options=list(dom="Bfrtip",scoller = TRUE, pageLength = 5,  buttons=c(I('colvis'),'csv', 'excel'), columnDefs = list(list(visible=FALSE, targets=c(12:14)))))
+```{r, eval=MGexist}
+DT::datatable(S1[idx, ], rownames=F, filter = 'top', class='cell-border stripe',extensions="Buttons", options=list(dom="Bfrtip",scoller = TRUE, pageLength = 5,  buttons=c(I('colvis'),'csv', 'excel'), columnDefs = list(list(visible=FALSE, targets=c(12:14)))))
 ```
 
 #### Gene level summary
@@ -173,7 +138,6 @@ The following fields are gene level annotations from AnnotSV: please see this do
 dGenes=data$gSVsplitAnnotSV
 AnnotSVGenes=read.delim(dGenes)
 #AnnotSVGenes=read.delim("/Users/anntri/gitLibs/WDLPipelines/cromwell-executions/ClinicalReport/7ca9d50f-4214-4abb-9b14-f72cf3ea114f/call-CreateClinical/execution/ER095_MEL3N.SV.split.formated.tsv")
-AnnotSVGenes$OMIM_morb=ifelse(AnnotSVGenes$OMIM_morbid=="yes", "morbid", ifelse(AnnotSVGenes$OMIM_morbid_candidate=="yes", "candidate", "no"))
 #AnnotSV=AnnotSV2[which(AnnotSV2$ACMG_class%in%c(3,4,5) & AnnotSV2$MeanVAF>0.25), ]
 ```
 
