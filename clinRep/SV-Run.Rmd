@@ -9,7 +9,10 @@ Summary of the number of variants:
 * Minimum number of supporting paired reads `r paramfile$SVPRfilter`
 
 ```{r, message=FALSE}
-SVTab
+SVTab=AnnotSV$SummTable
+S1=AnnotSV$full
+S2=AnnotSV$split
+S3=AnnotSV$acmg
 
 
 ## Filter out gains vs del
@@ -24,7 +27,7 @@ VariantSummary=c("Number of DUP/GAIN SVs ", "Number of DEL SVs ",
              "Number of BND SVs ")
 
 Nx=data.frame(Ngain=length(gain), Ndel=length(homloss), Nins=length(ins), Ninv=length(inv), Nbnd=length(bnd))
-Nx= cbind(VariantSummary, t(Nx))
+Nx=cbind(VariantSummary, t(Nx))
 
 kable(t(Nx), rownames = F)
 ```
@@ -56,7 +59,7 @@ ax=tryCatch({kpPlotMarkers(kp, data=genes, labels=genes$hgnc_symbol, text.orient
 ## Genes/Pathways of Interest
 
 ```{r, fig.height=3.5, eval=F}
-lx1=which((AnnotSV$GenesOfInterest!=""| AnnotSV$Cosmic!="") & AnnotSV$ACMG_class>=paramfile$AnnotSVACMGcutoff & (AnnotSV$AF<=0.1 | is.na(AnnotSV$AF)) & AnnotSV$MeanVAF>0.25)
+lx1=which((AnnotSV$GenesOfInterest!=""| AnnotSV$Cosmic!="") #& AnnotSV$ACMG_class>=paramfile$AnnotSVACMGcutoff & (AnnotSV$AF<=0.1 | is.na(AnnotSV$AF)) & AnnotSV$MeanVAF>0.25)
 ## Visualise the genes of interest?
 temp1=AnnotSV[lx1, c("SV_chrom", "SV_start", "SV_end", "SV_type", "GenesOfInterest", "Cosmic")]
 

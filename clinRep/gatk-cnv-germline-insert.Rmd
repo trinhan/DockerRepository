@@ -20,7 +20,7 @@ loss=which(T1$CN<2)
 
 ## need to debug this section
 gainMat=tryCatch({CreateGRangesData(T1[gain, ], "Reds",F)}, error=function(e){GRanges()})
-lossMat=tryCatch({CreateGRangesData(T1[loss, ], "Blues",F)}, error=function(e){ GRanges()})
+lossMat=tryCatch({CreateGRangesData(T1[loss, ], "Blues",F)}, error=function(e){GRanges()})
 
 
 #gainMat <- GRanges(seqnames=paste0("chr",T1[gain, "CHROM"]), ranges=IRanges(start=T1[gain, "START"],

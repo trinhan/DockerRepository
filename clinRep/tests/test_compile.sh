@@ -15,7 +15,7 @@ export snvhallmark="${sampleName}Pathway.filt.maf"
 export snvacmg="${sampleName}ACMG.filt.maf"
 export cnvAnnot="${sampleName}.CNV.formated.tsv"
 export svAnnot="${sampleName}.SV.formated.tsv"
-export SVsplit="${sampleName}.SV.split.formated.tsv"
+#export SVsplit="${sampleName}.SV.split.formated.tsv"
 
 rm -f final.yml temp.yml
 ( echo "cat > final.yml <<EOF"; cat example_data/${sampleName}.yaml; echo "EOF";)>temp.yml

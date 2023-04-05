@@ -54,8 +54,9 @@ library(karyoploteR)
 knitr::opts_chunk$set(echo = FALSE, warning = F, fig.width=12, fig.height=8, warning = F)
 data=read_yaml("final.yml")
 paramfile=read_yaml("parameter.json")
-source("scripts/FilterCNVs.R")
-source("scripts/CreateGRangesData.R")
+source("R/FilterCNVs.R")
+source("R/CreateGRangesData.R")
+source("R/FilterSVs.R")
 load("./annotFiles/ensembl_granges_genes_290722.RData")
 ```
 
@@ -117,7 +118,14 @@ EvalSV=RunSV
 # Check whether the SV file has length >0
 AnnotSV2=read.delim(data$gSVAnnotSV)
 ## remove:  &
-#AnnotSV=AnnotSV2[which(AnnotSV2$ACMG_class>=paramfile$AnnotSVACMGcutoff & AnnotSV2$MeanVAF>=paramfile$SVVAF), ]
+AnnotSV=AnnotSV2[which(AnnotSV2$ACMG_class>=paramfile$AnnotSVACMGcutoff & AnnotSV2$MeanVAF>=paramfile$SVVAF), ]
+
+if (EvalSV){
+  opts=list(tsv=data$gSVAnnotSV, VAF=0.25, ACMGcutoff=4)
+  AnnotSV=FilterSVs(opts) ## run this outside?
+  EvalSV=ifelse(nrow(AnnotSV$S1)>0, T, F)
+}
+
 EvalSV=ifelse(nrow(AnnotSV)>0, T, F)
 ```
 

@@ -3,6 +3,7 @@
 Summary of variants detected
 
 ```{r, eval=T, message=F}
+# Read in the files generated from FilterVariants.R in order to print the following files
 D1=read.delim(data$SNVsummary)
 D2=read.delim(data$SNVcancerRes)
 D3=read.delim(data$SNVHallmark)
@@ -16,7 +17,6 @@ Variant.Type=c("Total coding non-synonymous variants", "Total in Cancer Gene Cen
 # write name to variable so we can evaluate intersections
 N=c( D1, nrow(D2), nrow(D3), nrow(D4), nrow(D5), nrow(D6))
 Table1=cbind(Variant.Type,N)
-
 
 kable(Table1, row.names = F)
 ```
