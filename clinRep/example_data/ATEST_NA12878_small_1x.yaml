@@ -14,7 +14,12 @@ SNVVUS: ${snvvus}
 SNVdrugresponse: ${snvdrug}
 SNVcancerRes: ${snvcancer}
 SNVACMG: ${snvacmg}
-gCNVAnnotSV: ${cnvAnnot}
-gSVAnnotSV: ${svAnnot}
-gSVsplitAnnotSV: ${SVsplit}
+CNVSummary: ${cnvSummary}
+CNVFull: ${cnvFull}
+CNVSplit: ${cnvSplit}
+CNVacmg: ${cnvACMG}
+SVSummary: ${svSummary}
+SVFull: ${svFull}
+SVSplit: ${svSplit}
+SVacmg: ${svACMG}
 ploidyFile: contig_ploidy.tsv

@@ -50,13 +50,10 @@ library(karyoploteR)
 ##  manta - annotSV annotated manta file
 ##  Outputdir: where to save temporary output files
 ##  ClinRep: clinical information to include
-
 knitr::opts_chunk$set(echo = FALSE, warning = F, fig.width=12, fig.height=8, warning = F)
 data=read_yaml("final.yml")
 paramfile=read_yaml("parameter.json")
-source("R/FilterCNVs.R")
 source("R/CreateGRangesData.R")
-source("R/FilterSVs.R")
 load("./annotFiles/ensembl_granges_genes_290722.RData")
 ```
 
@@ -87,19 +84,16 @@ runSNVs=ifelse(is.null(data$SNVsummary), F, T)
 
 ```{r evaluate-CNVs-exist}
 ## Calculate whether the AnnotCNV file exists and is populated
-RunCV=ifelse(is.null(data$gCNVAnnotSV), F, T)
-EvalCNV=RunCV
-EvalCNV2=F
-
-if (EvalCNV){
-  opts=list(tsv=data$gCNVAnnotSV, CNlow=1, CNhigh=3, ACMGcutoff=4)
-  AnnotCNV=FilterCNVs(opts) ## run this outside?
-  EvalCNV2=ifelse(nrow(AnnotCNV$T1)>0, T, F)
+RunCV=ifelse(is.null(data$CNVFull), F, T)
+EvalCNV=F
+if (RunCV){
+ T1=read.delim(data$CNVFull, sep="\t")
+ EvalCNV=ifelse(nrow(T1)>0, T, F)
 }
 ```
 
 `r ifelse(RunCV==F, print('CNV data not available for this sample'), print(""))`
-`r ifelse(EvalCNV2==F, print('Analysis did not return any CNVs'), print(""))`
+`r ifelse(EvalCNV==F, print('Analysis did not return any CNVs'), print(""))`
 
 ```{r child = 'gatk-cnv-germline-insert.Rmd', eval=EvalCNV}
 ```
@@ -108,28 +102,16 @@ if (EvalCNV){
 
 ```{r evaluate-SVs-exist}
 # Check whether the SV file exists
-RunSV=ifelse(is.null(data$gSVAnnotSV), F, T)
-EvalSV=RunSV
+RunSV=ifelse(is.null(data$SVFull), F, T)
+EvalSV=F
+if (RunSV){
+ S1=read.delim(data$SVFull, sep="\t")
+ EvalSV=ifelse(nrow(S1)>0, T, F)
+}
 ```
 
 `r ifelse(RunSV==F, print('SV data not available for this sample'), print("")) `
-
-```{r evaluate-SV-length, eval=RunSV}
-# Check whether the SV file has length >0
-AnnotSV2=read.delim(data$gSVAnnotSV)
-## remove:  &
-AnnotSV=AnnotSV2[which(AnnotSV2$ACMG_class>=paramfile$AnnotSVACMGcutoff & AnnotSV2$MeanVAF>=paramfile$SVVAF), ]
-
-if (EvalSV){
-  opts=list(tsv=data$gSVAnnotSV, VAF=0.25, ACMGcutoff=4)
-  AnnotSV=FilterSVs(opts) ## run this outside?
-  EvalSV=ifelse(nrow(AnnotSV$S1)>0, T, F)
-}
-
-EvalSV=ifelse(nrow(AnnotSV)>0, T, F)
-```
-
-`r ifelse(EvalSV==F, print('There are no SVs detected in this sample!'), print(""))`
+`r ifelse(EvalSV==F, print('Analysis did not return any SVs'), print(""))`
 
 ```{r child = 'SV-Run.Rmd', eval=EvalSV}
 ```

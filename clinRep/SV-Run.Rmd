@@ -9,27 +9,12 @@ Summary of the number of variants:
 * Minimum number of supporting paired reads `r paramfile$SVPRfilter`
 
 ```{r, message=FALSE}
-SVTab=AnnotSV$SummTable
-S1=AnnotSV$full
-S2=AnnotSV$split
-S3=AnnotSV$acmg
+SVTab=read.delim(data$SVSummary, sep="\t")
+S2=read.delim(data$SVSplit, sep="\t")
+S3=read.delim(data$SVacmg, sep="\t")
 
-
-## Filter out gains vs del
-gain=which(AnnotSV$SV_type=="DUP")
-homloss=which(AnnotSV$SV_type=="DEL")
-ins=which(AnnotSV$SV_type=="INS")
-inv=which(AnnotSV$SV_type=="INV")
-bnd=which(AnnotSV$SV_type=="BND")
-
-VariantSummary=c("Number of DUP/GAIN SVs ", "Number of DEL SVs ",
-             "Number of INS SVs ", "Number of INV SVs ",
-             "Number of BND SVs ")
-
-Nx=data.frame(Ngain=length(gain), Ndel=length(homloss), Nins=length(ins), Ninv=length(inv), Nbnd=length(bnd))
-Nx=cbind(VariantSummary, t(Nx))
-
-kable(t(Nx), rownames = F)
+## Print the summary table
+kable(t(SVTab), rownames = F)
 ```
 The following variants are color coded:
 
@@ -41,12 +26,16 @@ Cosmic related genes or genes appearing in user defined list of interest are ind
 
 ```{r, fig.height=5, message=FALSE}
 
-gainMat2=tryCatch({CreateGRangesData(AnnotSV[c(gain, ins), ], "Reds",T, 500)}, error=function(e){GRanges()})
-lossMat2=tryCatch({CreateGRangesData(AnnotSV[homloss, ], "Blues",T, 500)}, error=function(e){ GRanges()})
-invMat2=tryCatch({CreateGRangesData(AnnotSV[c(inv, bnd)], "Green",T, 500)}, error=function(e){GRanges(names=NULL, path=NULL, AF=NULL)})
+gain=which(S1$TYPE%in%c("DUP", "INS"))
+homloss=which(S1$TYPE%in%c("DEL"))
+inv=which(S1$TYPE%in%c("INV", "BND"))
 
-if (length(S2$Gene_name)>1){
-  genes=genesAll[na.omit(match(S2$Gene_name, genesAll$hgnc_symbol))]
+gainMat2=tryCatch({CreateGRangesData(S1[gain, ], "Reds",T, 500)}, error=function(e){GRanges()})
+lossMat2=tryCatch({CreateGRangesData(S1[homloss, ], "Blues",T, 500)}, error=function(e){ GRanges()})
+invMat2=tryCatch({CreateGRangesData(S1[inv, ], "Green",T, 500)}, error=function(e){GRanges()})
+
+if (length(S2$GENE)>1){
+  genes=genesAll[na.omit(match(unique(S2$GENE), genesAll$hgnc_symbol))]
 }
 
 kp <- plotKaryotype(chromosomes=c("autosomal"), genome="hg38", plot.type=2)
@@ -58,75 +47,32 @@ ax=tryCatch({kpPlotMarkers(kp, data=genes, labels=genes$hgnc_symbol, text.orient
 ```
 ## Genes/Pathways of Interest
 
-```{r, fig.height=3.5, eval=F}
-lx1=which((AnnotSV$GenesOfInterest!=""| AnnotSV$Cosmic!="") #& AnnotSV$ACMG_class>=paramfile$AnnotSVACMGcutoff & (AnnotSV$AF<=0.1 | is.na(AnnotSV$AF)) & AnnotSV$MeanVAF>0.25)
-## Visualise the genes of interest?
-temp1=AnnotSV[lx1, c("SV_chrom", "SV_start", "SV_end", "SV_type", "GenesOfInterest", "Cosmic")]
+```{r}
+## Visualise the genes of interest
+if (length(S2$MultiSpan)>0){
 
-tx2=grep(",", temp1$GenesOfInterest)
+temp1=S2[which(S2$MultiSpan), c("CHROM", "START", "END","GENE", "Cosmic", "Pathways","TYPE", "Location")]
+temp1$Col=ifelse((temp1$Cosmic!=""&temp1$Pathways!=""),"purple", ifelse(temp1$Cosmic!="", "red", "blue") )
+temp1$TYPE=factor(temp1$TYPE)
 
-if (length(tx2)>0){
-  Input2=strsplit(temp1$GenesOfInterest[tx2], ",") 
-  lx3=sapply(Input2, length)
-  tempMat=temp1[tx2, ]
-  tempMat2=tempMat[rep(seq_len(nrow(tempMat)), times = lx3), ]
-  tempMat2$GenesOfInterest=unlist(Input2)
-  temp1=rbind(temp1[-tx2, ], tempMat2)
+ggplot(temp1, aes(x=GENE, y=1, fill=TYPE))+geom_tile()+theme(axis.text.x = element_blank(), axis.ticks.x = element_blank())+scale_fill_manual(values = fillvals)+expand_limits(y = 0.25)+geom_text(aes(colour = Col, label = GENE), y = 0.35, angle=90)+scale_colour_manual(values = c("blue", "purple", "red"), guide = "none")
 }
-
-tx3=grep(",", temp1$Cosmic)
-
-if (length(tx3)>0){
-  Input2=strsplit(temp1$GenesOfInterest[tx3], ",") 
-  lx3=sapply(Input2, length)
-  tempMat=temp1[tx3, ]
-  tempMat2=tempMat[rep(seq_len(nrow(tempMat)), times = lx3), ]
-  tempMat2$GenesOfInterest=unlist(Input2)
-  temp1=rbind(temp1[-tx3, ], tempMat2)
-}
-
-temp1=unique(temp1)
-temp1$GenesOfInterest[which(is.na(temp1$GenesOfInterest))]=""
-temp1$Col=ifelse((temp1$Cosmic!=""&temp1$GenesOfInterest!=""),"purple", ifelse(temp1$Cosmic!="",  "red", "blue"))
-
-temp1$Gene=ifelse((temp1$GenesOfInterest==""| is.na(temp1$GenesOfInterest)), temp1$Cosmic, temp1$GenesOfInterest)
-temp1$Gene=gsub(data$TreatmentKeywords, "", temp1$Gene)
-temp1$Gene=gsub(" ", "", temp1$Gene)
-#
-#
-temp1$Gene[which(temp1$Gene=="")]=NA
-
-temp2=unique(temp1[ ,-c(5:6)])
-
-temp2$SV_chrom=factor(temp2$SV_chrom, levels=c(1:22, "X", "Y"))
-temp2=temp2[order(temp2$SV_chrom,temp2$SV_start), ]
-
-#tempx=by(temp2$CN, temp2$Gene, mean)
-#tempx2=stack(round(tempx))
-
-#temp2=temp2[-which(duplicated(temp2[ ,c(4:5)])), ]
-# temp2$CN=(tempx2$values[ match(temp2$Gene, tempx2$ind)])
-# temp2$CN[which(temp2$CN==2)]=1
-# temp2$CN=factor(temp2$CN)
-temp2$Gene=factor(temp2$Gene, levels=temp2$Gene)
-
-colB=temp2$Col
-
-ggplot(temp2, aes(x=Gene, y=1, fill=SV_type))+geom_tile()+  theme(axis.text.x = element_blank(), axis.ticks.x = element_blank())+scale_fill_manual(values = c("#3182bd", "#9ecae1", "#de2d26"))+expand_limits(y = 0.25)+geom_text(aes(colour = colB, label = Gene), y = 0.35, angle=90)+facet_grid(~SV_chrom, space="free", scales="free")+scale_colour_manual(values = c("blue", "purple", "red"), guide = F)
 ```
 
 **Multi-gene spanning SVs**
 
-
 ```{r}
-idx=which(T1$GenesOfInterest!=""|T1$Cosmic!="")
+idx=which(S1$GenesOfInterest!=""|S1$Cosmic!="")
 MGexist=ifelse(length(idx)>0, T, F)
 ```
 
-`r ifelse(MGexist==F, print('There are no CNVs spanning multiple genes'), print('The CNVs spanning multiple genes are shown below:'))`
+`r ifelse(MGexist==F, print('There are no SVs spanning multiple genes'), print('The SVs spanning multiple genes are shown below:'))`
 
 ```{r, eval=MGexist}
-DT::datatable(S1[idx, ], rownames=F, filter = 'top', class='cell-border stripe',extensions="Buttons", options=list(dom="Bfrtip",scoller = TRUE, pageLength = 5,  buttons=c(I('colvis'),'csv', 'excel'), columnDefs = list(list(visible=FALSE, targets=c(12:14)))))
+viewIdx=c("SV_ID", "CHROM", "START","END","SV_length", "BND_partner","GenesOfInterest", "Cosmic", "OMIM_morbid","SplitReadVAF")
+HideIdx=setdiff(1:ncol(S1), match(viewIdx, colnames(S1)))-1
+DT::datatable(S1[idx, ], rownames=F, filter = 'top', class='cell-border stripe',extensions="Buttons", options=list(dom="Bfrtip",scoller = TRUE, pageLength = 5,  buttons=c(I('colvis'),'csv', 'excel'), columnDefs = list(list(visible=FALSE, targets=HideIdx))))
+
 ```
 
 #### Gene level summary
@@ -137,130 +83,58 @@ The following fields are gene level annotations from AnnotSV: please see this do
 * OMIM: disease annotation from OMIM and morbidity from loss
 * pLI: intolerance to protein truncating variants from gnomad or ExAC [0 -1]: closer to 1 is predicted intolerance
 
-```{r,message=F}
-dGenes=data$gSVsplitAnnotSV
-AnnotSVGenes=read.delim(dGenes)
-#AnnotSVGenes=read.delim("/Users/anntri/gitLibs/WDLPipelines/cromwell-executions/ClinicalReport/7ca9d50f-4214-4abb-9b14-f72cf3ea114f/call-CreateClinical/execution/ER095_MEL3N.SV.split.formated.tsv")
-#AnnotSV=AnnotSV2[which(AnnotSV2$ACMG_class%in%c(3,4,5) & AnnotSV2$MeanVAF>0.25), ]
-```
 
 **COSMIC related genes**
 
 ```{r}
-CGenes=which(AnnotSVGenes$Cosmic!="" & AnnotSVGenes$MeanVAF>=paramfile$SVVAF)
-CGenesSV=AnnotSVGenes[CGenes, ]
-Scolnames=c("Gene_name","AnnotSV_ID", "SV_type", "SV_length", "ACMG_class", "Location", "AF", "HI", "TS","OMIM_phenotype", "OMIM_morb",
-            "RE_gene", "Dist_nearest_SS", "TAD_coordinate",
-             "Bsource", "Psource", "GnomAD_pLI", "ExAC_pLI", "SRVAF",
-            "MeanVAF", "Depth")
-CGenesSVfilt=CGenesSV[ ,Scolnames]
-
-colnames(CGenesSVfilt)=c("GENE","SV_ID", "TYPE", "SV_length", "ACMG", "Location", "Pop Freq", "Haploinsufficiency", "Triplosensitivity", "OMIM", "OMIM_morbid", "Reg.Element.Genes", "Nearest.Splice.Site.bp", "TAD", "BenignSource", "PathogenicSource", "gnomad.pLI", "exac.pLI", "SplitReadVAF", "MeanVAF", "Depth")
-
-DT::datatable(CGenesSVfilt, rownames=F, filter = 'top', class='cell-border stripe',extensions="Buttons", options=list(dom="Bfrtip",scoller = TRUE, pageLength = 7,  buttons=c(I('colvis'),'csv', 'excel'), columnDefs = list(list(visible=FALSE, targets=c(9, 11, 12, 13,14, 17:20)))))
-
+viewIdx=c("SV_ID", "GENE", "CHROM", "START","END", "CN", "Location", "Haploinsufficiency", "Triplosensitivity", "OMIM_morbid", "Pathways", "ACMG","Reg.Element.Genes", "Nearest.Splice.Site.bp", "TAD", "BenignSource", "PathogenicSource", "gnomad.pLI","SplitReadVAF", "MeanVAF", "Depth")
+HideIdx=setdiff(1:ncol(S2), match(viewIdx, colnames(S2)))-1
+CGenes=which(S2$Cosmic!="")
+# label parameters to view by default
+DT::datatable(S2[CGenes, ], rownames=F, filter = 'top', class='cell-border stripe',extensions="Buttons", options=list(dom="Bfrtip",scoller = TRUE, pageLength = 5,  buttons=c(I('colvis'),'csv', 'excel'), columnDefs = list(list(visible=FALSE, targets=HideIdx))))
 ```
 
 **Pathway related genes**
 
 ```{r}
-PGenes=which(AnnotSVGenes$GenesOfInterest!="" & AnnotSVGenes$MeanVAF>=paramfile$SVVAF)
-PGenesSV=AnnotSVGenes[PGenes, ]
-Scolnames=c("Gene_name","AnnotSV_ID", "SV_type", "SV_length", "ACMG_class", "Location", "AF", "HI", "TS","OMIM_phenotype", "OMIM_morb",
-            "RE_gene", "Dist_nearest_SS", "TAD_coordinate",
-             "Bsource", "Psource", "GnomAD_pLI", "ExAC_pLI","SRVAF",
-            "MeanVAF", "Depth")
-PGenesSVfilt=PGenesSV[ ,Scolnames]
-
-colnames(PGenesSVfilt)=c("GENE","SV_ID", "TYPE", "SV_length", "ACMG", "Location", "Pop Freq", "Haploinsufficiency", "Triplosensitivity", "OMIM", "OMIM_morbid", "Reg.Element.Genes", "Nearest.Splice.Site.bp", "TAD", "BenignSource", "PathogenicSource", "gnomad.pLI", "exac.pLI", "SplitReadVAF", "MeanVAF", "Depth")
-
-DT::datatable(PGenesSVfilt, rownames=F, filter = 'top', class='cell-border stripe',extensions="Buttons", options=list(dom="Bfrtip",scoller = TRUE, pageLength = 7,  buttons=c(I('colvis'),'csv', 'excel'), columnDefs = list(list(visible=FALSE, targets=c(9, 11, 12, 13,14, 17:20)))))
-              
-
+PGenes=which(S2$GenesOfInterest!="" )
+# label parameters to view by default
+DT::datatable(S2[PGenes, ], rownames=F, filter = 'top', class='cell-border stripe',extensions="Buttons", options=list(dom="Bfrtip",scoller = TRUE, pageLength = 5,  buttons=c(I('colvis'),'csv', 'excel'), columnDefs = list(list(visible=FALSE, targets=HideIdx))))
 ```
 
 
-```{r, eval=F}
-## Bed annotation for annotSV
-bed2=AnnotSV[ c("SV_chrom", "SV_start", "SV_end",  "SV_length","SV_type", "MeanVAF","chr2", "loc2", "Gene_name")]
-bed2[ ,1]=paste("chr", bed2[ ,1], sep="")
+#### ACMG class 4 or 5 regions
 
+The following variants are level 4 or 5 based on AnnotSV ACMG prediction. Review the genes and population frequencies to assess whether they are relevant or not:
 
-bed=A1[ ,c("CONTIG","START","END", "MEAN_LOG2_COPY_RATIO")]
-colnames(bed)=c("chr","start","end", "value1")
-bed[ ,1]=paste("chr", bed[,1], sep="")
+```{r, fig.height=6}
+gain=which(S3$SV_type%in%c("DUP", "INS"))
+homloss=which(S3$SV_type%in%c("DEL"))
+inv=which(S3$SV_type%in%c("INV", "BND"))
 
-bedt=do.call(rbind, Xout[2:4])
-bed3=cbind(bedt[ ,c("Chromosome", "Start_Position", "End_Position")], value=substr(rownames(bedt), 1, 1))
-bed3$value=gsub("F", 1,bed3$value)
-bed3$value=gsub("P", 2,bed3$value)
-bed3$value=gsub("V", 3,bed3$value)
+gainMat2=tryCatch({CreateGRangesData(S3[gain, ], "Reds",T, 500)}, error=function(e){GRanges()})
+lossMat2=tryCatch({CreateGRangesData(S3[homloss, ], "Blues",T, 500)}, error=function(e){ GRanges()})
+invMat2=tryCatch({CreateGRangesData(S3[inv, ], "Green",T, 500)}, error=function(e){GRanges()})
 
-bed3[ ,1]=paste("chr", bed3[,1], sep="")
-bed3$value=as.numeric(bed3$value)
+GList=setdiff(na.omit(unique(c(S3$GenesOfInterest, S3$Cosmic))), "")
 
-colnames(bed3)=c("chr","start","end","value1")
-## include the bed file for actionable mutations?
-## insert gene names of actionable mutations, or those which have a CNV
-bed4=bed3[ which(bed3$value!=3), c(1:4) ]
-
-circos.par("track.height" = 0.08)
-circos.initializeWithIdeogram(species="hg19") # plot the ideogram
-
-
-circos.genomicTrack(bed3, stack=TRUE, panel.fun = function(region,value,...) {
-    circos.genomicPoints(region, value, cex = 0.75, pch = 20,col=ifelse(value==1,"#bd0026", ifelse(value==2, "#f03b20", "#fed976")), ...)
-})
-
-circos.genomicTrack(bed, panel.fun = function(region, value, ...) {
-    circos.genomicPoints(region, value, cex = 0.75, pch = 20,col=ifelse(value>0.6, "red", ifelse(value<(-1), "blue", "grey")), ...)
-})
-
-#circos.genomicTrack(bed, panel.fun = function(region, value, ...) {    circos.genomicPoints(region, value, cex = 0.5, pch = 16,col=ifelse(value>0.6, "red", ifelse(value<(-1), "blue", "grey")), ...)})
-
-if (!is.null(data$Manta)){
-
-typeE=c("DEL","DUP","INS")
-colE=c("blue","red","green")
-for (i in 1:3) {
-        bed_list=bed2[which(bed2[,6]==typeE[i]),c(1:4)]
-        if (dim(bed_list)[1]>0){
-        circos.genomicTrack(bed_list, track.height=0.05,
-    panel.fun = function(region, value, ...) {
-        circos.genomicRect(region, value, ytop.column = 1, ybottom = 0, 
-            col = colE[i], ...)
-        circos.lines(CELL_META$cell.xlim, c(0, 0), lty = 2, col = "#00000040")
-    })
-    } else {
-        circos.genomicTrackPlotRegion(bed_list,track.height=0.05,stack=TRUE, panel.fun = function(region, value, ...) {circos.genomicRect(region, value, cex = 0.5, pch = 16, col = colE[i], ...)})
-    }
-
+if (length(GList)>0){
+  genes=genesAll[na.omit(match(GList, genesAll$hgnc_symbol))]
 }
-
-## plot the last part of this
-bed2b=bed2[which(bed2[ ,6]=="BND"), c(1,2, 7:8)]
-if (dim(bed2b)[1]>0){
-for (i in 1:dim(bed2b)[1]) {
-        circos.link(bed2b[i,1],as.numeric(bed2b[i,2]),bed2b[i,3],as.numeric(bed2b[i,4]))
-}}
-}
-
-title("Somatic calls (SNV - CNV - SV)")
-legend(0.7,1.05,legend=c("SNV", "CNV","SV-DEL","SV-DUP","SV-INS"),col=c("orange","grey","blue","red","green"),pch=c(16,16,15,15,15),cex=0.75,title="Tracks:",bty='n')
-legend(0.7,0.8,legend="SV-TRANSLOCATION",col="black",lty=1,cex=0.75,lwd=1.2,bty='n')
-
-# **Legend** (outer to inner tracks):
-# 
-# * Ideogram of genome
-# * Somatic SNVs: <span style="color:#bd0026"> Potentially actionable </span> <span style="color:#f03b20"> Biologically relevant </span> <span style="color:#fed976"> Variant of Unknown Significance </span>
-# * Copy number profiles: <span style="color:red"> Gains (log2FC > 0.6) </span> <span style="color:blue"> Loss (log2FC < 1) </span> <span style="color:grey"> Neutral </span>
-# * Structural Variants:
-#   - <span style="color:blue"> Deletions, height indicative of VAF </span>
-#   - <span style="color:red"> Duplications, height indicative of VAF </span>
-#   - <span style="color:green"> Insertions, height indicative of VAF </span>
-#   - Lines indicate translocations
-#   
-# This legend will be replaced with a pictorial guide once the diagram has been finalised.
+          
+kp <- plotKaryotype(chromosomes=c("autosomal"), genome="hg38", plot.type=2)
+ax=tryCatch({kpPlotRegions(kp, gainMat2, col=gainMat2$AFcol,data.panel = 1)}, error=function(e){NULL})
+ax=tryCatch({kpPlotRegions(kp, lossMat2, col=lossMat2$AFcol,data.panel = 2)}, error=function(e){NULL})
+ax=tryCatch({kpPlotRegions(kp, invMat2, col=invMat2$AFcol,data.panel = 3)}, error=function(e){NULL})
+ax=tryCatch({kpPlotMarkers(kp, data=genes, labels=genes$hgnc_symbol, text.orientation = "horizontal",
+              r1=0.75, cex=0.5, adjust.label.position = FALSE)}, error=function(e){NULL})
 
 ```
 
+```{r}
+# label parameters to view by default
+viewIdx=c("SV_ID","CHROM", "START","END", "GenesOfInterest", "Cosmic", "Haploinsufficiency", "Triplosensitivity", "OMIM_morbid", "ACMG")
+HideIdx=setdiff(1:ncol(S3), match(viewIdx, colnames(S3)))-1
+DT::datatable(S3, rownames=F, filter = 'top', class='cell-border stripe',extensions="Buttons", options=list(dom="Bfrtip",scoller = TRUE, pageLength = 5,  buttons=c(I('colvis'),'csv', 'excel'), columnDefs = list(list(visible=FALSE, targets=HideIdx))))
+
+```

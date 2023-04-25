@@ -18,6 +18,15 @@ pathwayTerms="DNADamage"
 pathwayList="annotFiles/PathwayList.csv"
 columnEntries="annotFiles/ColumnIDs.csv"
 
+#############################
+# Run Specific Cases
+# -- toggle below to select which tests to run
+# 0 is off/false; 1 is on/true
+#############################
+TEST1=1
+TEST2=1
+TEST3=1
+
 #######################
 ## Sample Options here
 #######################
@@ -28,19 +37,21 @@ SampleName="ATEST_NA12878_small_1x"
 Output="ATEST_NA12878_small_1x.maf"
 runMode="Germline"
 
-echo "RUNNING TEST 1"
-Rscript scripts/vepVCF2maf.R --vcffile $Sample --outputfile vep.maf --sampleName $SampleName --canonical T --runMode $runMode --AAlist $AAlist &&
-Rscript scripts/DBAnnotations.R --maffile vep.maf --outputfile dba.maf --sampleName $SampleName --cosmicMut $cosmicMut --cosmicGenes $cosmicGenes --MSigDB $MsigDBAnnotation --pfam $pfam --pirsf $pirsf &&
-paste vep.maf dba.maf > $Output &&
-Rscript scripts/SummarizeVariants.R --maffile $Output --outputname $SampleName --caseName $SampleName --caddscore 10 --Ncallerthresh 1 --AddList $AddList --columnEntries $columnEntries &&
-Rscript scripts/FilterVariants.R --maffile ${SampleName}variantsCoding.filt.maf --scoringRubrik $ScoreMatrix --outputname $SampleName --ACMG $ACMG --pathwayList $pathwayTerms --pathwayFile $pathwayList --gnomadcutoff 0.1 --onlyCoding T --pathogenic T
-RESULT=$?
-rm vep.maf dba.maf
+if [ $TEST1 -eq 1 ]; then
+  echo "RUNNING TEST 1 - GERMLINE WGS VEP"
+  Rscript scripts/vepVCF2maf.R --vcffile $Sample --outputfile vep.maf --sampleName $SampleName --canonical T --runMode $runMode --AAlist $AAlist &&
+  Rscript scripts/DBAnnotations.R --maffile vep.maf --outputfile dba.maf --sampleName $SampleName --cosmicMut $cosmicMut --cosmicGenes $cosmicGenes --MSigDB $MsigDBAnnotation --pfam $pfam --pirsf $pirsf &&
+  paste vep.maf dba.maf > $Output &&
+  Rscript scripts/SummarizeVariants.R --maffile $Output --outputname $SampleName --caseName $SampleName --caddscore 10 --Ncallerthresh 1 --AddList $AddList --columnEntries $columnEntries &&
+  Rscript scripts/FilterVariants.R --maffile ${SampleName}variantsCoding.filt.maf --scoringRubrik $ScoreMatrix --outputname $SampleName --ACMG $ACMG --pathwayList $pathwayTerms --pathwayFile $pathwayList --gnomadcutoff 0.1 --onlyCoding T --pathogenic T
+  RESULT=$?
+  rm vep.maf dba.maf
 
-if [ $RESULT -eq 0 ]; then
-  echo TEST1 PASSED
-else
-  echo TEST1 FAILED
+  if [ $RESULT -eq 0 ]; then
+    echo TEST1 PASSED
+  else
+    echo TEST1 FAILED
+  fi
 fi
 
 ################################
@@ -52,7 +63,8 @@ Output="ER099_MEL4_germline.maf"
 runMode="Germline"
 gunzip -c $Sample > vep.maf
 
-echo "Running Test 2"
+if [ $TEST2 -eq 1 ]; then
+echo "Running Test 2 - GERMLINE WGS ONCOKB"
 Rscript scripts/DBAnnotations.R --maffile vep.maf --outputfile dba.maf --sampleName $SampleName --cosmicMut $cosmicMut --cosmicGenes $cosmicGenes --MSigDB $MsigDBAnnotation --pfam $pfam --pirsf $pirsf &&
 paste vep.maf dba.maf > $Output &&
 Rscript scripts/SummarizeVariants.R --maffile $Output --outputname $SampleName --caseName $SampleName --caddscore 10 --Ncallerthresh 1 --AddList $AddList --columnEntries $columnEntries &&
@@ -64,6 +76,7 @@ if [ $RESULT -eq 0 ]; then
 else
   echo TEST2 FAILED
 fi
+fi
 
 ################################
 # 3. Tumour Paired - works
@@ -72,8 +85,9 @@ fi
  SampleName="TEST_TUM_ER002_MPM1"
  Output="A_TEST_PAIRED.maf"
  runMode="Tumour"
- 
-echo "RUNNING TEST 3"
+
+if [ $TEST3 -eq 1 ]; then 
+echo "RUNNING TEST 3 - TUMOUR PAIRED VEP"
 Rscript scripts/vepVCF2maf.R --vcffile $Sample --outputfile vep.maf --sampleName $SampleName --canonical T --runMode $runMode --AAlist $AAlist &&
 Rscript scripts/DBAnnotations.R --maffile vep.maf --outputfile dba.maf --sampleName $SampleName --cosmicMut $cosmicMut --cosmicGenes $cosmicGenes --MSigDB $MsigDBAnnotation --pfam $pfam --pirsf $pirsf &&
 paste vep.maf dba.maf > $Output &&
@@ -85,4 +99,5 @@ if [ $RESULT -eq 0 ]; then
   echo TEST3 PASSED
 else
   echo TEST3 FAILED
+fi
 fi

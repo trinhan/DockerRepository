@@ -3,8 +3,15 @@
 ## Note if there is an error locally go into Rstudio and type Sys.getenv("RSTUDIO_PANDOC")
 # Germline report status
 sampleName="ATEST_NA12878_small_1x"
+ploidyTar="example_data/ATEST_NA12878_small_1x.case-contig-ploidy-calls.tar.gz"
 
 echo RUNNING TEST COMPILATION FOR ${sampleName} Germline Mode
+
+mkdir ploidytmp
+tar xf ${ploidyTar} -C ploidytmp
+mv ploidytmp/*/contig_ploidy.tsv .
+
+rm -rf ploidytmp
 
 # Functions to repopulate the .yaml file
 export snvsummary="${sampleName}variantSummary.filt.maf"
@@ -13,9 +20,14 @@ export snvvus="${sampleName}VUS.filt.maf"
 export snvdrug="${sampleName}Drug.filt.maf"
 export snvhallmark="${sampleName}Pathway.filt.maf"
 export snvacmg="${sampleName}ACMG.filt.maf"
-export cnvAnnot="${sampleName}.CNV.formated.tsv"
-export svAnnot="${sampleName}.SV.formated.tsv"
-#export SVsplit="${sampleName}.SV.split.formated.tsv"
+export svSummary="${sampleName}.SV.SummaryTable.txt"
+export svFull="${sampleName}.SV.full.filt.maf"
+export svSplit="${sampleName}.SV.split.filt.maf"
+export svACMG="${sampleName}.SV.acmg.filt.maf"
+export cnvSummary="${sampleName}.CNV.SummaryTable.txt"
+export cnvFull="${sampleName}.CNV.full.filt.maf"
+export cnvSplit="${sampleName}.CNV.split.filt.maf"
+export cnvACMG="${sampleName}.CNV.acmg.filt.maf"
 
 rm -f final.yml temp.yml
 ( echo "cat > final.yml <<EOF"; cat example_data/${sampleName}.yaml; echo "EOF";)>temp.yml

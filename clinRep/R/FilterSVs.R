@@ -1,107 +1,148 @@
 #!/usr/bin/Rscript
 "
 This script takes an AnnotSV annotated file, annotated using the SummarizeAnnotSV.R script. The outputs are:
- * a full transcript file (filtered for the columns of interest, and by minimum VAF)
- * a split transcript file (filtered for genes of interest - either from Cosmic or Pathway related, and by minimum VAF)
+ * a full transcript file (filtered for the columns of interest, and by minimum VAF or CN)
+ * a split transcript file (filtered for genes of interest - either from Cosmic or Pathway related, and by minimum VAF or CN)
  * acmg transcript file (filtered according to ACMG)
  * summary table - number of different variants (after filtering)
 
-usage: \n FilterSVs.R [--tsv=<file> --germline=<boolean> --VAF=<float> --ACMGcutoff=<int>]
+usage: \n FilterSVs.R [--tsv=<file> --outputname=<string> --mode=<string> --VAF=<float> --ACMGcutoff=<int> --ColsIDs=<file> --CNlow=<int> --CNhigh=<int>] 
 \n options:
 \n --tsv=<file> tsv from AnnotSV or funcotator
 \n --outputname=<string> output string
-\n --germline=<boolean> [default: TRUE] is this in germline mode
+\n --mode=<string> CNV or SV mode
 \n --VAF=<float> [default: 0.25] VAF threshold to use
-\n --ACMGcutoff=<int> [default: 4] for germline mode " -> doc
+\n --ACMGcutoff=<int> [default: 4] for germline mode 
+\n --CNlow=<int> [default: 1] is this in germline mode
+\n --CNhigh=<int> [default: 3] is this in germline mode
+\n --ColsIDs=<file> [default: NULL] Matrix of required column inputs and how to rename them " -> doc
 
 library("docopt", quietly = T)
 opts <- docopt(doc, help=TRUE, version='1.0.0')
 
-FilterSVs=function(opts){
   ############################################
   #1. Load in all required libraries silently
   ############################################
   
   suppressMessages(library(data.table, quietly = T))
   suppressMessages(library(matrixStats, quietly = T))
-  #load("./annotFiles/ensembl_granges_genes_290722_chr1_22_XYMT.RData")
   
   ############################################
   #2. Read in data file, set the CN thresholds and separate into split and full
   ############################################
+  message('Run FilterSV')
+  AnnotSV=read.delim(opts$tsv)
   
-  AnnotSV2=read.delim(opts$tsv)
-  AnnotSV2=AnnotSV[which(AnnotSV2$MeanVAF>=opts$VAF), ]  ## filter criteria?
+  if (opts$mode=="SV"){
+  AnnotSV=AnnotSV[which(AnnotSV$MeanVAF>=opts$VAF), ]  ## filter criteria?
+  sprintf('There are %s rows in data after %s VAF filter', nrow(AnnotSV), opts$VAF)
+  }else if (opts$mode=="CNV"){
+  AnnotSV=AnnotSV[which(AnnotSV$CN<opts$CNlow |AnnotSV$CN>opts$CNhigh), ]  
+  sprintf('There are %s rows in data with CN less than %s and higher than %s ', nrow(AnnotSV), opts$CNlow, opts$CNhigh)
+  }
   AnnotSVFull=AnnotSV[AnnotSV$Annotation_mode=="full", ]
   AnnotSVSplit=AnnotSV[AnnotSV$Annotation_mode=="split", ]
-    
+  
+  # stop catch if there is no data in AnnotSV
+  if(nrow(AnnotSV)==0){
+    message("There are not enough rows in the input SV file...")
+  }
   
   ###########################################
   # 3. Create a summary table
   ###########################################
+  message('creating summary table')
   gain=which(AnnotSVFull$SV_type=="DUP")
   homloss=which(AnnotSVFull$SV_type=="DEL")
   ins=which(AnnotSVFull$SV_type=="INS")
   inv=which(AnnotSVFull$SV_type=="INV")
   bnd=which(AnnotSVFull$SV_type=="BND")
   
-  VariantSummary=c("Number of DUP/GAIN SVs ", "Number of DEL SVs ",
-                   "Number of INS SVs ", "Number of INV SVs ",
-                   "Number of BND SVs ")
+  VariantSummary=c("Number of DUP/GAIN", "Number of DEL",
+                   "Number of INS", "Number of INV",
+                   "Number of BND")
   
   Nx=data.frame(Ngain=length(gain), Ndel=length(homloss), Nins=length(ins), Ninv=length(inv), Nbnd=length(bnd))
-  SummTable= cbind(VariantSummary, t(Nx))
-  
+  SummTable=cbind(VariantSummary, t(Nx))
+
+  ############################################
+  #2B. Prepare the dictionary for renaming data
+  ############################################
+  if (opts$ColsID=="NULL"){
+    SIDCol=read.csv("./annotFiles/SV_column_IDs.csv")
+  } else {
+    SIDCol=read.csv(opts$ColsID)
+  }
+    
   ############################################
   #3. Filter full length
   ############################################
-  Scolnames=c("Gene_name","AnnotSV_ID", "SV_type", "SV_length", "ACMG_class", "Location", "AF", "HI", "TS","OMIM_phenotype", "OMIM_morb",
-              "RE_gene", "Dist_nearest_SS", "TAD_coordinate",
-              "Bsource", "Psource", "GnomAD_pLI", "ExAC_pLI", "SRVAF","PRVAF",
-              "MeanVAF", "Depth","GenesOfInterest","Cosmic", "Pathways","GTex", "SV_chrom","SV_start","SV_end"  )
+
   # Filter based on whether there is a GeneofInterest or Cosmic related gene
   # Add a tag to indicate the genes of interest
-  S1=AnnotSVFull[, Scolnames]
-  colnames(S1)=c("GENE","SV_ID", "TYPE", "SV_length", "ACMG", "Location", "Pop.Freq", "Haploinsufficiency", "Triplosensitivity", "OMIM", "OMIM_morbid", "Reg.Element.Genes", 
-                 "Nearest.Splice.Site.bp", "TAD", "BenignSource", "PathogenicSource", "gnomad.pLI", "exac.pLI", "SplitReadVAF", "PairedReadVAF", "MeanVAF", "Depth",
-                 "GenesOfInterest", "Cosmic", "Pathways", "GTex", "CHROM" ,"START", "END")
+  if (opts$mode=="SV"){
+    scolidx=which(SIDCol$Table%in%c("ALL", "FULL", "SV"))
+  }else if (opts$mode=="CNV"){
+    scolidx=which(SIDCol$Table%in%c("ALL", "FULL", "CNV"))
+  }
+  m1=match(SIDCol$Variable[scolidx], colnames(AnnotSVFull))
+  S1=AnnotSVFull[, na.omit(m1)]
+  colnames(S1)=SIDCol$ReName[scolidx[which(!is.na(m1))]]
+  ## Reannotate based on chromosome
   S1$CHROM=factor(S1$CHROM, levels=c(1:22, "X", "Y"))
   S1=S1[order(S1$CHROM,S1$START), ]
+  sprintf('Full length SVs associated with pathway/Cosmic: %s entries', nrow(S1))
   
   ############################################
   # 4. Filter split length
   ############################################
-  Scolnames=c("SV_chrom", "SV_start", "SV_end","Gene_name", "Pathways","CN", "GenesOfInterest","Cosmic","Pheno", "ACMG_class", "Location", "AF", "HI", "TS","OMIM_phenotype", "OMIM_morb",
-              "RE_gene", "Dist_nearest_SS", "TAD_coordinate", "Bsource", "Psource", "GnomAD_pLI", "ExAC_pLI", "GTex")       
-  # Filter based on whether there is a GeneofInterest or Cosmic related gene
+  #find the variables of interest and rename
+  if (opts$mode=="SV"){
+    scolidx=which(SIDCol$Table%in%c("ALL", "SPLIT", "SV"))
+  }else if (opts$mode=="CNV"){
+    scolidx=which(SIDCol$Table%in%c("ALL", "SPLIT", "CNV"))
+  } 
+  m1=match(SIDCol$Variable[scolidx], colnames(AnnotSVSplit))
+  S2=AnnotSVSplit[, na.omit(m1)]
+  colnames(S2)=SIDCol$ReName[scolidx[which(!is.na(m1))]]
+  #########################################
+  # !!modify this to include all genes
+  ########################################
   idx=which(AnnotSVSplit$GenesOfInterest!=""|AnnotSVSplit$Cosmic!="")
-  S2=AnnotSVSplit[idx, Scolnames]
-  colnames(S2)=c("CHROM","START","END", "Gene_name","Pathways","CN","PathwayRelated","Cosmic", "Pheno","ACMG_class","Location","Pop.Freq","Haploinsufficiency","Triplosensitivity",
-                 "OMIM","OMIM_morbid","Reg.Element.Genes","Nearest.Splice.Site.bp", "TAD","BenignSource","PathogenicSource","gnomad.pLI","exac.pLI","GTex")   
-  # also indicate whether to use a gene for a plot based on how long the CV is, or whether it crosses multiple intron/exon boundaries
-  SpanReg=strsplit(S2$Location,"-")
-  StartIdx=sapply(SpanReg, function(x) x[1])
-  EndIdx=sapply(SpanReg, function(x) x[2])
-  MultiInt=ifelse(StartIdx!=EndIdx, T, F)
-  MultiInt[grep("exon", StartIdx)]=T
-  MultiInt[grep("exon", EndIdx)]=T
-  S2$MultiSpan=MultiInt
+  #try(if(length(idx)==0) warning("No genes of interest found"))
+  #S2=S2[idx, ]
+  #idx=length(unique(S2$GENE))
   
-  S2$CHROM=factor(S2$CHROM, levels=c(1:22, "X", "Y"))
-  S2=S2[order(S2$CHROM,S2$START), ]
+  #if(length(idx)>0){
+  # also indicate whether to use a gene for a plot based on how long the CV is, or whether it crosses multiple intron/exon boundaries
+    SpanReg=strsplit(S2$Location,"-")
+    StartIdx=sapply(SpanReg, function(x) x[1])
+    EndIdx=sapply(SpanReg, function(x) x[2])
+    MultiInt=ifelse(StartIdx!=EndIdx, T, F)
+    MultiInt[grep("exon", StartIdx)]=T
+    MultiInt[grep("exon", EndIdx)]=T
+    S2$MultiSpan=MultiInt
+    S2$CHROM=factor(S2$CHROM, levels=c(1:22, "X", "Y"))
+    S2=S2[order(S2$CHROM,S2$START), ]
+  #}
+    
+  sprintf('Split length SVs total %s , and associated with pathway/Cosmic: %s entries', nrow(S2), length(idx))
   
   ###############################################
   # 5. Filter the ACMG genes
   ###############################################
-  Scolnames=c("SV_chrom", "SV_start", "SV_end", "CN", "Pheno", "ACMG_class", "AF", "Psource",
-              "Gene_name","Cosmic", "Pathways","GTex","GenesOfInterest" )
+  message('find the acmg genes')
   filt2=which(AnnotSVFull$ACMG_class>opts$ACMGcutoff)
-  S3=AnnotSVFull[filt2, Scolnames]
-  colnames(S3)[c(1:3,7:8)]=c("CHROM", "START", "END", "Pop.Freq","PathogenicSource")
+  S3=S1[filt2, ]
+  #colnames(S3)[c(1:3,7:8)]=c("CHROM", "START", "END", "Pop.Freq","PathogenicSource")
+  sprintf('Filter acmg SVs with %s cutoff: %s entries', opts$ACMGcutoff,nrow(S3))
   
   ################################################
   # 6. Write to file, or return the list
   ###############################################
-  return(list(SummTable=SummTable,full=S1, split=S2, acmg=S3))
-  
-}
+  message('write files to output')
+  write.table(SummTable, file=paste(opts$outputname,".", opts$mode, ".SummaryTable.txt", sep=""), sep = "\t", row.names = F,  quote = F)
+  write.table(S1, file=paste(opts$outputname,".", opts$mode, ".full.filt.maf", sep=""), sep = "\t", row.names = F,  quote = F)
+  write.table(S2, file=paste(opts$outputname,".", opts$mode, ".split.filt.maf", sep=""), sep = "\t", row.names = F,  quote = F)
+  write.table(S3, file=paste(opts$outputname,".", opts$mode, ".acmg.filt.maf", sep=""), sep = "\t", row.names = F,  quote = F)
+

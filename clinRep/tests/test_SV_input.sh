@@ -24,9 +24,9 @@ Tissue="skin"
 # -- toggle below to select which tests to run
 # 0 is off/false; 1 is on/true
 #############################
-TEST1=1
-TEST2=1
-TEST3=1
+TEST1=0
+TEST2=0
+TEST3=0
 TEST4=1
 
 #############################
@@ -34,9 +34,9 @@ TEST4=1
 #############################
 
 if [ $TEST1 -eq 1 ]; then
-  echo "Running Test 1"
+  echo "RUNNING TEST 1 - TUMOUR CNV"
   inputSV="example_data/ER002_MPM1T_145_155bp.called.seg.funcotated.tsv"
-  sampleName="ER002_MPM1T"
+  sampleName="A_TEST_PAIRED"
   CNV=TRUE
   germline=FALSE
 
@@ -58,9 +58,11 @@ inputSV="example_data/ATEST_NA12878_small_1x.gCNV.annotSV.tsv.gz"
 sampleName="ATEST_NA12878_small_1x"
 CNV=TRUE
 germline=TRUE
+PassFilt=FALSE
 
-echo "Running Test 2"
-Rscript scripts/SummarizeAnnotSV.R --tsv ${inputSV} --outputname ${sampleName} --germline ${germline} --PASSfilt FALSE --MSigDB ${MsigDBAnnotation} --GTex ${GTex} --CosmicList ${cosmicGenes} --CNV ${CNV} --AddList ${AddList} --pathwayTerm ${pathwayTerm} --pathwayList ${pathwayList} --Tissue ${Tissue} --ACMGCutoff 2
+echo "RUNNING TEST 2 - GERMLINE CNV"
+Rscript scripts/SummarizeAnnotSV.R --tsv ${inputSV} --outputname ${sampleName} --germline ${germline} --PASSfilt ${PassFilt} --MSigDB ${MsigDBAnnotation} --GTex ${GTex} --CosmicList ${cosmicGenes} --CNV ${CNV} --AddList ${AddList} --pathwayTerm ${pathwayTerm} --pathwayList ${pathwayList} --Tissue ${Tissue} --ACMGCutoff 2
+Rscript R/FilterSVs.R --tsv ${sampleName}.CNV.formated.tsv --outputname ${sampleName} --mode CNV --CNlow 1 --CNhigh 3
 RESULT=$?
 if [ $RESULT -eq 0 ]; then
   echo TEST2 PASSED
@@ -77,9 +79,11 @@ inputSV="example_data/TEST_TUM_ER002_MPM1.Manta.annotSV.tsv.gz"
 sampleName="TEST_TUM_ER002_MPM1"
 CNV=FALSE
 germline=FALSE
+PassFilt=FALSE
 
-echo "Running Test 3"
-Rscript scripts/SummarizeAnnotSV.R --tsv ${inputSV} --outputname ${sampleName} --germline ${germline} --PASSfilt FALSE --MSigDB ${MsigDBAnnotation} --GTex ${GTex} --CosmicList ${cosmicGenes} --CNV ${CNV} --AddList ${AddList} --pathwayTerm ${pathwayTerm} --pathwayList ${pathwayList} --Tissue ${Tissue} --ACMGCutoff 2 --SRfilter 3 --PRfilter 0
+echo "RUNNING TEST 3 - SV TUMOUR"
+Rscript scripts/SummarizeAnnotSV.R --tsv ${inputSV} --outputname ${sampleName} --germline ${germline} --PASSfilt ${PassFilt} --MSigDB ${MsigDBAnnotation} --GTex ${GTex} --CosmicList ${cosmicGenes} --CNV ${CNV} --AddList ${AddList} --pathwayTerm ${pathwayTerm} --pathwayList ${pathwayList} --Tissue ${Tissue} --ACMGCutoff 2 --SRfilter 3 --PRfilter 0 &&
+Rscript R/FilterSVs.R --tsv ${sampleName}.SV.formated.tsv --outputname ${sampleName} --mode SV --VAF 0.2 --ACMGcutoff 5
 RESULT=$?
 if [ $RESULT -eq 0 ]; then
   echo TEST3 PASSED
@@ -96,9 +100,11 @@ inputSV="example_data/ATEST_NA12878_small_1x.Manta.annotSV.tsv.gz"
 sampleName="ATEST_NA12878_small_1x"
 CNV=FALSE
 germline=TRUE
+PassFilt=FALSE
 
-echo "Running Test 4"
-Rscript scripts/SummarizeAnnotSV.R --tsv ${inputSV} --outputname ${sampleName} --germline ${germline} --PASSfilt FALSE --MSigDB ${MsigDBAnnotation} --GTex ${GTex} --CosmicList ${cosmicGenes} --CNV ${CNV} --AddList ${AddList} --pathwayTerm ${pathwayTerm} --pathwayList ${pathwayList} --Tissue ${Tissue} --ACMGCutoff 2 --SRfilter 3 --PRfilter 0
+echo "RUNNING TEST 4 - SV GERMLINE"
+Rscript scripts/SummarizeAnnotSV.R --tsv ${inputSV} --outputname ${sampleName} --germline ${germline} --PASSfilt ${PassFilt} --MSigDB ${MsigDBAnnotation} --GTex ${GTex} --CosmicList ${cosmicGenes} --CNV ${CNV} --AddList ${AddList} --pathwayTerm ${pathwayTerm} --pathwayList ${pathwayList} --Tissue ${Tissue} --ACMGCutoff 2 --SRfilter 3 --PRfilter 0 
+Rscript R/FilterSVs.R --tsv ${sampleName}.SV.formated.tsv --outputname ${sampleName} --mode SV --VAF 0.2 --ACMGcutoff 5
 RESULT=$?
 if [ $RESULT -eq 0 ]; then
   echo TEST4 PASSED
