@@ -23,7 +23,7 @@ docker build -t trinhanne/clin_report_annot:v2.7 .
 
 ## File Preparation
 
-There are different series of scripts to prepare the inputs prior to embedding into the report (This does not run computation, it mainly displays the results)
+There are different series of scripts to prepare the inputs prior to embedding into the report. The report itself does not run much computation, it mainly displays the results.
 
 ## SNV data
 
@@ -86,14 +86,15 @@ Rscript FilterVariants.R --maffile ${SampleName}variantsCoding.filt.maf --scorin
 
 #### Outputs
 
-* Scoring Matrix with criteria fulfilled for each gene
+* Scoring Matrix with criteria fulfilled for each gene (*scoringMatrix.txt)
+* Summary table of number of variants per list (*variantSummary.filt.maf)
 * Filtered gene lists:
-	* all variants
-	* ACMG only
-	* Cosmic/Cancer
-	* Pathway of interest
-	* VUS
-	* Drug Related
+	* all Coding variants (*variantsCoding.filt.maf)
+	* ACMG only (*ACMG.filt.maf)
+	* Cosmic/Cancer (*Cosmic.filt.maf)
+	* Pathway of interest (*Pathway.filt.maf)
+	* VUS (*VUS.filt.maf)
+	* Drug Related (*Drug.filt.maf)
 
 
 ## SV data
@@ -132,13 +133,28 @@ ACMGCutoff |  AnnotSV ACMG scoring of the variant | 3. Note that most high-scori
 SRfilter | Minimum number of spanning reads to support a variant | 5? depends on the sequencing depth
 PRfilter | Minimum number of paired reads to support a variant | 2 
 PASSfilt | Retain only variants which are considered "PASS" by manta if this information is present | TRUE
+VAF | Minimum VAF to specify a variant exists | 0.25
 
 #### Execution
 
 ```
 Rscript SummarizeAnnotSV.R --AnnotSVtsv ~{inputSV} --outputname ~{sampleName} --germline T --MSigDB ${MsigDBAnnotation} \
         --GTex ${GTex} --CosmicList ${cosmicGenes} --AddList ${AddList} --pathwayTerm ${pathwayTerm} --pathwayList ${pathwayList} --ACMGCutoff ~{ACMGcutoff} --Tissue ${Tissue} --CNV FALSE --SRfilter 5 --PRfilter 2 --PASSfilt TRUE
+Rscript FilterSVs.R --tsv ~{sampleName}.SV.formated.tsv --outputname ~{sampleName} --mode SV --VAF ~{VAF} --ACMGCutoff ~{ACMGcutoff}
 ```
+
+#### Outputs
+
+* Scoring Matrix with criteria fulfilled for each gene (*scoringMatrix.txt)
+* Summary table of number of variants per list (*variantSummary.filt.maf)
+* Filtered gene lists:
+	* all Coding variants (*variantsCoding.filt.maf)
+	* ACMG only (*ACMG.filt.maf)
+	* Cosmic/Cancer (*Cosmic.filt.maf)
+	* Pathway of interest (*Pathway.filt.maf)
+	* VUS (*VUS.filt.maf)
+	* Drug Related (*Drug.filt.maf)
+
 
 ## CNV Data
 
@@ -158,6 +174,7 @@ The process is identical to the SV pre-processing. Note that the only difference
 ```
 Rscript SummarizeAnnotSV.R --AnnotSVtsv ~{inputSV} --outputname ~{sampleName} --germline T --MSigDB ${MsigDBAnnotation} \
         --GTex ${GTex} --CosmicList ${cosmicGenes} --AddList ${AddList} --pathwayTerm ${pathwayTerm} --pathwayList ${pathwayList} --ACMGCutoff ${ACMGcutoff} --Tissue ${Tissue} --CNV T --PASSfilt TRUE
+Rscript FilterSVs.R --tsv ~{sampleName}.SV.formated.tsv --outputname ~{sampleName} --mode CNV  --ACMGCutoff ~{ACMGcutoff} --CNlow ~{CNlow} --CNhigh ~{CNhigh}
 ```
 
 ### Tumour Mode
