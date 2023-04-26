@@ -9,13 +9,14 @@ FilterVariants.R ( --maffile=<file> --scoringRubrik=<file>)  [--outputname=<stri
 \n --ACMG=<file> Table of ACMG variants
 \n --pathwayList=<string> a List to return variants of a specific pathway (believed to be related to response) 
 \n --pathwayFile=<file> a Table of pathway terms to search
-\n --caddscore=<float> [default: 0] score for cadd cut-off
+\n --caddscore=<float> [default: 10] score for cadd cut-off
 \n --gnomadcutoff=<float> [default: 0.1] 
 \n --onlyCoding=<boolean> [default: TRUE]
 \n --pathogenic=<boolean> [default: TRUE] filter to keep only variants which have a high CADD score OR non-benign ClinVar OR damaging POLYPHEN" -> doc
 
 library("docopt", quietly = T)
 opts <- docopt(doc, help=TRUE, version='1.0.0')
+print(opts)
 
 ############################################
 #1. Load in all required libraries silently
@@ -45,7 +46,7 @@ if (!is.null(opts$gnomad)){
 }
 
 if (opts$onlyCoding){
-  print('Find variants only in coding areas')
+  message('Find variants only in coding areas')
   ax1=which(InputData$ConsB==1)
   ScorMat$coding[ax1]=1
   sprintf('%s variants kept after filtering to coding regions', length(ax1))
@@ -59,7 +60,6 @@ if (as.numeric(opts$caddscore)>0){
 }
 
 if (opts$pathogenic){
-  print('filter based on predicted pathogenicity')
   ax1=which(InputData$Pathogenicity==1)
   ScorMat$pathogenic[ax1]=1
   sprintf("%s variants after clinvar PolyPhen or CADD", length(ax1))
@@ -99,7 +99,7 @@ if (length(Lx1)>0){
 #7. Filter based on whether the variant is in Cosmic Mut or Gene List
 #####################################################################  
 
-  print('Finding cancer variants')
+  message('Finding cancer variants')
   ## Known Variants associated with cancer?
   # Find variants with Cancer Gene Census Tier in 1:2
   bx1=which(InputData$CancerGeneCensus.Tier%in%c("Hallmark 1", "1", "Hallmark 2", "2")) 
@@ -155,19 +155,19 @@ for (i in 1:ncol(MatrixIn)){
   a1=as.matrix(ScorMat[ ,Nlist])
   b1=as.numeric(MatrixIn[t1 ,i])
   TempMat=a1%*%b1
-  nx=max(TempMat)
+  nx=length(t1)
   # Take the rowsum and find the max to identify the gene list
   Glist=which(TempMat==nx)
   Keep3=InputData[Glist, ]
   Keep3=Keep3%>%select(!c("AF_max", "ConsB"))
-  print(sprintf("%s variants are %s ", nrow(Keep3), colnames(MatrixIn)[i]))
+  message(sprintf("%s variants are %s ", nrow(Keep3), colnames(MatrixIn)[i]))
   write.table(Keep3, file=paste(opts$outputname, colnames(MatrixIn)[i],".filt.maf", sep=""), sep = "\t", row.names = F,  quote = F)
 }
 
 ScorMat2=cbind(InputData[ ,1:5], ScorMat)
 write.table(ScorMat2, file=paste(opts$outputname, ".scoringMatrix.txt", sep=""), sep = "\t", row.names = F,  quote = F)
 
-print('FILTER VARIANTS COMPLETE')
+message('FILTER VARIANTS COMPLETE')
 
 
 

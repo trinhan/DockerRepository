@@ -84,8 +84,11 @@ tx2=match(AllData$Hugo_Symbol, Cosmic2$Gene.Symbol)
 AllData$CMC.Cancer_Gene_Tier=NA
 AllData$CMC.Cancer_Gene_Tier[which(!is.na(tx2))]=Cosmic2$Tier[na.omit(tx2)]
 # c. If the gene is a hallmark gene, add this information in the Tier column 
+addhallmark=which(Cosmic2$Hallmark=="Yes")
+if (length(addhallmark)>0){
 tx3=match(AllData$Hugo_Symbol, Cosmic2$Gene.Symbol[which(Cosmic2$Hallmark=="Yes")])
 AllData$CMC.Cancer_Gene_Tier[which(!is.na(tx3))]=paste("Hallmark", AllData$CMC.Cancer_Gene_Tier[which(!is.na(tx3))])
+}
 
 #########################################
 #6. Annotate with Consensus Cosmic Gene List

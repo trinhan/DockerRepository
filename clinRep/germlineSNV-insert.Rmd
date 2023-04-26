@@ -2,7 +2,7 @@
 
 Summary of variants detected
 
-```{r, eval=T, message=F}
+```{r SNV-summary, eval=T, message=F}
 # Read in the files generated from FilterVariants.R in order to print the following files
 D1=read.delim(data$SNVsummary)
 D2=read.delim(data$SNVcancerRes)
@@ -32,7 +32,7 @@ The following variants have been listed within the following sources:
 * Variants only in coding regions `r paramfile$TierAOnlyCoding`
 * These genes include: `r sort(unique(D2$SYMBOL))`
 
-```{r}
+```{r SNV-TierA}
 viewIdx=c("SYMBOL", "HGVSp",	"EXON",	"Consequence","ProteinDomain",
               "CMC.Oncogene","Pathogenicity", "gnomAD.AF","CancerGeneCensus.Tier", "UserGeneList","VAF","ClinVar.Sig", "Genotype", "CancerMutationCensus.Tier")
 HideIdx=setdiff(1:ncol(D2), match(viewIdx, colnames(D2)))-1
@@ -52,7 +52,7 @@ The following variants:
 * Is non-benign according to ClinVar OR Polyphen `r paramfile$TierBPathogenic`
 * These genes include: `r sort(unique(D3$SYMBOL))`
 
-```{r}
+```{r SNV-TierB}
 viewIdx=c("SYMBOL", "HGVSp","EXON",	"Consequence","ProteinDomain",
               "CMC.Oncogene","PolyPhen", "gnomAD.AF", "UserGeneList","VAF","ClinVar.Sig", "Genotype", "CancerMutationCensus.Tier", "HallmarkPathways")
 HideIdx=setdiff(1:ncol(D3), match(viewIdx, colnames(D3)))-1
@@ -69,9 +69,9 @@ The following variants annotated with clinvar have reported the following:
 * can influence drug response
 * These genes include: `r sort(unique(D4$SYMBOL))`
 
-```{r}
+```{r SNV-TierC}
 
-viewIdx=c("SYMBOL","rsID", "HGVSp",	"EXON","ClinVar.Disease", "ClinVar.Sig", "ClinVar", "ProteinDomain")
+viewIdx=c("SYMBOL","HGVSp",	"EXON","ClinVar.Disease", "gnomAD.AF", "ProteinDomain")
 HideIdx=setdiff(1:ncol(D4), match(viewIdx, colnames(D4)))-1
 DT::datatable(D4, rownames=F, filter = 'top', class='cell-border stripe',extensions="Buttons", options=list(dom="Bfrtip",scoller = TRUE, pageLength = 10,  buttons=c(I('colvis'),'csv', 'excel'), columnDefs = list(list(visible=FALSE, targets=HideIdx))))
 
@@ -87,7 +87,7 @@ The following variants:
 * Is non-benign according to ClinVar OR Polyphen `r paramfile$TierDPathogenic`
 * These genes include: `r sort(unique(D5$SYMBOL))`
 
-```{r}
+```{r SNV-TierD}
 viewIdx=c("SYMBOL", "HGVSp",	"EXON", "ProteinDomain", "gnomAD.AF", "Pathogenicity", "HallmarkPathways")
 HideIdx=setdiff(1:ncol(D5), match(viewIdx, colnames(D5)))-1
 DT::datatable(D5, rownames=F, filter = 'top', class='cell-border stripe',extensions="Buttons", options=list(dom="Bfrtip",scoller = TRUE, pageLength = 10,  buttons=c(I('colvis'),'csv', 'excel'), columnDefs = list(list(visible=FALSE, targets=HideIdx))))
@@ -102,7 +102,7 @@ The following variants:
 * variant is predicted to be pathogenic or likely pathogenic by ClinVar
 * These genes include: `r sort(unique(D6$SYMBOL))`
 
-```{r}
+```{r SNV-TierE}
 viewIdx=c("SYMBOL", "HGVSp",	"EXON", "ProteinDomain", "gnomAD.AF", "Pathogenicity", "HallmarkPathways", "CMC.Oncogene", "ClinSig")
 HideIdx=setdiff(1:ncol(D6), match(viewIdx, colnames(D6)))-1
 DT::datatable(D6, rownames=F, filter = 'top', class='cell-border stripe',extensions="Buttons", options=list(dom="Bfrtip",scoller = TRUE, pageLength = 10,  buttons=c(I('colvis'),'csv', 'excel'), columnDefs = list(list(visible=FALSE, targets=HideIdx))))

@@ -1,5 +1,5 @@
 #!/usr/bin/Rscript
-"usage: \n SummarizeAnnotSV.R [--tsv=<file> --outputname=<string> --germline=<boolean> --MSigDB=<file> --GTex=<file> --CosmicList=<file> --AddList=<file> --pathwayTerm=<string> --pathwayList=<file> --ACMGCutoff=<integer> --Tissue=<string> --CNV=<boolean> --SRfilter=<integer> --PRfilter=<integer> --PASSfilt=<boolean>]
+"usage: \n SummarizeAnnotSV.R [--tsv=<file> --outputname=<string> --germline=<boolean> --MSigDB=<file> --GTex=<file> --CosmicList=<file> --AddList=<file> --pathwayTerm=<string> --pathwayList=<file> --ACMGCutoff=<integer> --Tissue=<string> --CNV=<boolean> --SRfilter=<integer> --PRfilter=<integer> --PASSfilt=<boolean --AFthreshold>]
 \n options:
 \n --tsv=<file> tsv from AnnotSV or funcotator
 \n --outputname=<string> output string
@@ -7,15 +7,16 @@
 \n --MSigDB=<file> File containing MsigDB gene set information
 \n --GTex=<file> GTex Expression Data
 \n --CosmicList=<file> File of Cosmic Related Genes
-\n --AddList=<file> List of additionalgene lists [default=NULL]
+\n --AddList=<file> List of additional gene lists [default: NULL]
 \n --pathwayTerm=<string>
 \n --pathwayList=<file>
 \n --ACMGCutoff=<integer> Cut off value to assess these variants. Anything below this will not be further annotated [default:3]
 \n --Tissue=<string> Tissue type 
-\n --CNV=<boolean> Whether the input is a CNV or SV
+\n --CNV=<boolean> Whether the input is a CNV or SV [default: FALSE]
 \n --SRfilter=<integer> [default: 1] Minimum number of SR to support SV
 \n --PRfilter=<integer> [default: 1] Minimum number of PR to support SV
-\n --PASSfilt=<boolean> filter variants with PASS tag [default=TRUE] " -> doc
+\n --PASSfilt=<boolean> filter variants with PASS tag [default: TRUE] 
+\n --AFthreshold=<float> [default: 0.1] Max pop frequency value for common variants" -> doc
 
 library("docopt", quietly = T)
 opts <- docopt(doc, help=TRUE, version='1.0.0')
@@ -42,7 +43,7 @@ suppressMessages(library(matrixStats, quietly = T))
 InputData=read.delim(opts$tsv)
 print(paste0("Number of rows:", nrow(InputData)))
   
-if (opts$PASSfilt){
+if (opts$PASSfilt=="TRUE"){
   InputData=InputData[which(InputData$FILTER=="PASS"| InputData$FILTER=="."), ]
   print(paste0("Number of rows PASS filter:", nrow(InputData)))
 }
@@ -112,6 +113,20 @@ InputData$Pheno=Pheno
 InputData$AF=BAF
 InputData$Psource=Psource
 InputData$Bsource=Bsource
+
+# Filter in an AF if common
+nidx=which(InputData$AF<opts$AFthreshold | is.na(InputData$AF))
+InputData=InputData[nidx, ]
+
+########
+# Note: may want to include a summary of pathogenicity based on annotations?
+#######
+# e.g. 
+#pathogencity=ifelse(allSV$Haploinsufficiency>1 & allSV$Haploinsufficiency<=3, "Haploinsufficient", 
+#ifelse(allSV$Triplosensitivity>1 & allSV$Triplosensitivity<=3, "Triplosensitive", 
+#       ifelse(allSV$PathogenicSource!="", "Possibly pathogenic", 
+#              ifelse(allSV$BenignSource!="", "Possibly benign", "unknown"))))
+
 }
 
 ############################################
@@ -149,7 +164,7 @@ InputData$Pathways=Nm3
 ############################################
 
 ## also include information from the AddList
-if (!is.null(opts$AddList)){
+if (opts$AddList!="NULL"){
   print('Annotate with input gene list')
   GL=read.delim(opts$AddList, header=F)
   GL=GL[ ,1]
@@ -208,7 +223,7 @@ InputData$Cosmic=Nx2
 #10. Extract genotypes for germline cases and CNs 
 ############################################
 
-#if (runTag){
+if (runTag){
 print('Add Genotypes')
 # Figure out how many samples are present
 Nsamp=unlist(strsplit(InputData[ 1,"Samples_ID"], ","))
@@ -225,17 +240,17 @@ if (length(Nsamp2)>0){
 
 
 if (opts$CNV==F){ ## test run for germline only
-    print('adding GT values')
+    print('adding GT values for germline SV')
     GT=sapply(temp, function(x) x[1]) 
     InputData$GT=GT
 }
 
-if (opts$CNV){
-  print('adding CN values')
+if (opts$CNV==T){
+  print('adding CN values for CNV')
   CN=sapply(temp, function(x) x[2])
   InputData$CN=CN
 }
-#}
+}
 ############################################
 #11. Extract PR and SR filters
 ############################################
@@ -264,23 +279,39 @@ if (opts$CNV==F){
     InputData$Depth=sapply(1:length(PRVAF), function(x) sum(c(as.numeric(PR2[[x]]), as.numeric(SR2[[x]])), na.rm = T))
     PRcounts=sapply(PR2, function(x) as.numeric(x[2]))
     SRcounts=sapply(SR2, function(x) as.numeric(x[2]))
+    SRcounts[which(is.na(SRcounts))]=0
     tx1=which(PRcounts>= as.numeric(opts$PRfilter) & SRcounts>=as.numeric(opts$SRfilter))
+    
+    ############################################
+    #12. If "BND" samples are present, rescue the appropriate ends
+    ############################################
+    if (length(tx1)>0){
+      BNDidx=which(InputData$SV_type[tx1]=="BND")
+      IDs=InputData$ID[BNDidx]
+      Val=unique(regmatches(IDs, regexpr("MantaBND:[0-9]+:", IDs)))
+      sx1=unlist(sapply(Val, function(x) grep(x, InputData$ID)))
+      if (length(sx1)>0){
+        tx1=unique(c(tx1, sx1))
+      }
+    }
     InputData=InputData[tx1, ]
+    InputData$ID[which(InputData$SV_type!="BND")]=""
     print(paste0("Number of rows passing after SR and PR filters:", nrow(InputData)))
 }
 
-  print('Finished! Write out formated output table')
+
+
+
+############################################
+#13. Print the raw table to file
+############################################
+
+print('Finished! Write raw formated output table')
 if (opts$CNV){
     print(paste0("Number of Annotated CNV rows:", nrow(InputData)))
     write.table(InputData, file=paste(opts$outputname, ".CNV.formated.tsv", sep=""), sep="\t", row.names = F, quote = F)
   } else {
-    ## decide whether we need to split this file??
-    InputDataFull=InputData[InputData$Annotation_mode=="full", ]
-    print(paste0("Number of SV rows in full:", nrow(InputDataFull)))
-    InputDataSplit=InputData[InputData$Annotation_mode=="split", ]
-    print(paste0("Number of SV rows in split:", nrow(InputDataSplit)))
-    write.table(InputDataFull, file=paste(opts$outputname, ".SV.formated.tsv", sep=""), sep="\t", row.names = F, quote = F)
-    write.table(InputDataSplit, file=paste(opts$outputname, ".SV.split.formated.tsv", sep=""), sep="\t", row.names = F, quote = F)
+    print(paste0("Number of SV rows in full:", nrow(InputData)))
+    write.table(InputData, file=paste(opts$outputname, ".SV.formated.tsv", sep=""), sep="\t", row.names = F, quote = F)
 }
 
-  

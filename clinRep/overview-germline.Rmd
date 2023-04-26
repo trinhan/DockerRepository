@@ -1,7 +1,7 @@
 
 Here we report any genes which could be impacted by a combination of SNVs, CNV and/or SVs, below is an overlap of the types of variation found in genes of interest:
 
-```{r, fig.height=5, fig.width=5}
+```{r all-find-intersect, fig.height=5, fig.width=5}
 ## combine all SNVs together
 STerms=c("SYMBOL", "rsID", "CHROM", "POS", "HGVSp", "Consequence", "gnomAD.AF", "ClinVar.Sig","ClinVar.Disease", "ProteinDomain", "CancerGeneCensus.Tier","CancerMutationCensus.Tier")
 allSNV=rbind(D2[, STerms], D3[ ,STerms], D4[ ,STerms], D5[ ,STerms], D6[ ,STerms])
@@ -67,27 +67,35 @@ Below are common genes between different variant types:
 * SVs coloured by SV type
 * CNVs according to copy number
 
-```{r}
+```{r all-plot-intersect, fig.height=5}
 a1=intersect(allSNV$SYMBOL,S2$GENE)
 a2=intersect(allSNV$SYMBOL,T2$GENE)
 a3=intersect(S2$GENE,S3$GENE)
 a4=unique(c(a1, a2))
+contRun=ifelse(length(a4)>1, T, F)
+```
 
+`r ifelse(contRun,print('') ,print('There are no common variants with SNVs/CNV/SVs'))`
+
+```{r, eval=contRun}
 VariantTable=data.frame(gene=a4, SNV=NA, SV=NA, CNV=NA)
 VariantTable$SNV=allSNV$Consequence[match(a4, allSNV$SYMBOL)]
 VariantTable$SV=S2$TYPE[match(a4, S2$GENE)]
 VariantTable$CNV=T2$CN[match(a4, T2$GENE)]
 
-library(reshape2)
+VariantTable
+
 mVT=melt(VariantTable, measure.vars=c("SNV", "SV", "CNV"))
 
 ggplot(mVT, aes(x=gene, y=variable, fill=value))+geom_tile()+theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1))
 ``` 
  
-
 **Summary Table of genes**
  
-```{r}
+`r ifelse(contRun,print('') ,print('There are no common variants with SNVs/CNV/SVs'))`
+ 
+ 
+```{r all-print-variants, eval=contRun}
 nSNV=allSNV[which(allSNV$SYMBOL%in%a4), c("SYMBOL", "CHROM", "POS", "HGVSp", "Consequence", "ProteinDomain", "class")]
 nCV=T2[which(T2$GENE%in%a4), c("GENE", "START", "END", "CN", "Location")]
 colnames(nCV)=paste(colnames(nCV), ".CNV", sep="")
@@ -96,7 +104,7 @@ nSV=S2[which(S2$GENE%in%a4), c("GENE", "START", "END", "TYPE", "Location")]
 colnames(nSV)=paste(colnames(nSV), ".SV", sep="")
 colnames(nSV)[1]="SYMBOL"
 
-library(dplyr)    
+  
 comb1<-tryCatch({left_join(nSNV, nCV, by = c("SYMBOL"))}, error=function(e){nSNV})
 comb2<-tryCatch({left_join(comb1, nSV, by = c("SYMBOL"))}, error=function(e){comb1}) 
 

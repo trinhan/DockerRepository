@@ -25,8 +25,8 @@ Tissue="skin"
 # 0 is off/false; 1 is on/true
 #############################
 TEST1=0
-TEST2=0
-TEST3=0
+TEST2=1
+TEST3=1
 TEST4=1
 
 #############################
@@ -62,7 +62,7 @@ PassFilt=FALSE
 
 echo "RUNNING TEST 2 - GERMLINE CNV"
 Rscript scripts/SummarizeAnnotSV.R --tsv ${inputSV} --outputname ${sampleName} --germline ${germline} --PASSfilt ${PassFilt} --MSigDB ${MsigDBAnnotation} --GTex ${GTex} --CosmicList ${cosmicGenes} --CNV ${CNV} --AddList ${AddList} --pathwayTerm ${pathwayTerm} --pathwayList ${pathwayList} --Tissue ${Tissue} --ACMGCutoff 2
-Rscript R/FilterSVs.R --tsv ${sampleName}.CNV.formated.tsv --outputname ${sampleName} --mode CNV --CNlow 1 --CNhigh 3
+Rscript R/FilterSVs.R --tsv ${sampleName}.CNV.formated.tsv --outputname ${sampleName} --mode CNV --CNlow 0 --CNhigh 4
 RESULT=$?
 if [ $RESULT -eq 0 ]; then
   echo TEST2 PASSED

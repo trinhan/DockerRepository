@@ -24,8 +24,8 @@ columnEntries="annotFiles/ColumnIDs.csv"
 # 0 is off/false; 1 is on/true
 #############################
 TEST1=1
-TEST2=1
-TEST3=1
+TEST2=0
+TEST3=0
 
 #######################
 ## Sample Options here

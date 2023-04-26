@@ -37,8 +37,8 @@ opts <- docopt(doc, help=TRUE, version='1.0.0')
   AnnotSV=AnnotSV[which(AnnotSV$MeanVAF>=opts$VAF), ]  ## filter criteria?
   sprintf('There are %s rows in data after %s VAF filter', nrow(AnnotSV), opts$VAF)
   }else if (opts$mode=="CNV"){
-  AnnotSV=AnnotSV[which(AnnotSV$CN<opts$CNlow |AnnotSV$CN>opts$CNhigh), ]  
-  sprintf('There are %s rows in data with CN less than %s and higher than %s ', nrow(AnnotSV), opts$CNlow, opts$CNhigh)
+  AnnotSV=AnnotSV[which(AnnotSV$CN<=opts$CNlow |AnnotSV$CN>=opts$CNhigh), ]  
+  sprintf('There are %s rows in data with CN less than or equal to %s and higher than or equal to %s ', nrow(AnnotSV), opts$CNlow, opts$CNhigh)
   }
   AnnotSVFull=AnnotSV[AnnotSV$Annotation_mode=="full", ]
   AnnotSVSplit=AnnotSV[AnnotSV$Annotation_mode=="split", ]
@@ -63,7 +63,7 @@ opts <- docopt(doc, help=TRUE, version='1.0.0')
                    "Number of BND")
   
   Nx=data.frame(Ngain=length(gain), Ndel=length(homloss), Nins=length(ins), Ninv=length(inv), Nbnd=length(bnd))
-  SummTable=cbind(VariantSummary, t(Nx))
+  SummTable=cbind(VariantSummary, N=t(Nx))
 
   ############################################
   #2B. Prepare the dictionary for renaming data

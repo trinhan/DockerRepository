@@ -8,13 +8,13 @@ Summary of the number of variants:
 * Minimum number of supporting split reads `r paramfile$SVSRfilter`
 * Minimum number of supporting paired reads `r paramfile$SVPRfilter`
 
-```{r, message=FALSE}
+```{r SV-summary, message=FALSE}
 SVTab=read.delim(data$SVSummary, sep="\t")
 S2=read.delim(data$SVSplit, sep="\t")
 S3=read.delim(data$SVacmg, sep="\t")
 
 ## Print the summary table
-kable(t(SVTab), rownames = F)
+kable(SVTab, rownames = F)
 ```
 The following variants are color coded:
 
@@ -24,7 +24,7 @@ The following variants are color coded:
 
 Cosmic related genes or genes appearing in user defined list of interest are indicated
 
-```{r, fig.height=5, message=FALSE}
+```{r SV-karyoplot, fig.height=5, message=FALSE}
 
 gain=which(S1$TYPE%in%c("DUP", "INS"))
 homloss=which(S1$TYPE%in%c("DEL"))
@@ -45,9 +45,10 @@ ax=tryCatch({kpPlotRegions(kp, invMat2, col=invMat2$AFcol,data.panel = 3)}, erro
 ax=tryCatch({kpPlotMarkers(kp, data=genes, labels=genes$hgnc_symbol, text.orientation = "horizontal",
               r1=0.75, cex=0.5, adjust.label.position = FALSE)}, error=function(e){NULL})
 ```
-## Genes/Pathways of Interest
 
-```{r}
+#### Genes/Pathways of Interest
+
+```{r, eval=F}
 ## Visualise the genes of interest
 if (length(S2$MultiSpan)>0){
 
@@ -68,7 +69,7 @@ MGexist=ifelse(length(idx)>0, T, F)
 
 `r ifelse(MGexist==F, print('There are no SVs spanning multiple genes'), print('The SVs spanning multiple genes are shown below:'))`
 
-```{r, eval=MGexist}
+```{r SV-MultiSpan, eval=MGexist}
 viewIdx=c("SV_ID", "CHROM", "START","END","SV_length", "BND_partner","GenesOfInterest", "Cosmic", "OMIM_morbid","SplitReadVAF")
 HideIdx=setdiff(1:ncol(S1), match(viewIdx, colnames(S1)))-1
 DT::datatable(S1[idx, ], rownames=F, filter = 'top', class='cell-border stripe',extensions="Buttons", options=list(dom="Bfrtip",scoller = TRUE, pageLength = 5,  buttons=c(I('colvis'),'csv', 'excel'), columnDefs = list(list(visible=FALSE, targets=HideIdx))))
@@ -86,7 +87,7 @@ The following fields are gene level annotations from AnnotSV: please see this do
 
 **COSMIC related genes**
 
-```{r}
+```{r SV-Cosmic}
 viewIdx=c("SV_ID", "GENE", "CHROM", "START","END", "CN", "Location", "Haploinsufficiency", "Triplosensitivity", "OMIM_morbid", "Pathways", "ACMG","Reg.Element.Genes", "Nearest.Splice.Site.bp", "TAD", "BenignSource", "PathogenicSource", "gnomad.pLI","SplitReadVAF", "MeanVAF", "Depth")
 HideIdx=setdiff(1:ncol(S2), match(viewIdx, colnames(S2)))-1
 CGenes=which(S2$Cosmic!="")
@@ -96,7 +97,7 @@ DT::datatable(S2[CGenes, ], rownames=F, filter = 'top', class='cell-border strip
 
 **Pathway related genes**
 
-```{r}
+```{r SV-Pathway}
 PGenes=which(S2$GenesOfInterest!="" )
 # label parameters to view by default
 DT::datatable(S2[PGenes, ], rownames=F, filter = 'top', class='cell-border stripe',extensions="Buttons", options=list(dom="Bfrtip",scoller = TRUE, pageLength = 5,  buttons=c(I('colvis'),'csv', 'excel'), columnDefs = list(list(visible=FALSE, targets=HideIdx))))
@@ -107,7 +108,7 @@ DT::datatable(S2[PGenes, ], rownames=F, filter = 'top', class='cell-border strip
 
 The following variants are level 4 or 5 based on AnnotSV ACMG prediction. Review the genes and population frequencies to assess whether they are relevant or not:
 
-```{r, fig.height=6}
+```{r SV-ACMG-karyoplot, fig.height=6}
 gain=which(S3$SV_type%in%c("DUP", "INS"))
 homloss=which(S3$SV_type%in%c("DEL"))
 inv=which(S3$SV_type%in%c("INV", "BND"))
@@ -120,6 +121,8 @@ GList=setdiff(na.omit(unique(c(S3$GenesOfInterest, S3$Cosmic))), "")
 
 if (length(GList)>0){
   genes=genesAll[na.omit(match(GList, genesAll$hgnc_symbol))]
+}else{
+  genes=NULL
 }
           
 kp <- plotKaryotype(chromosomes=c("autosomal"), genome="hg38", plot.type=2)
@@ -131,7 +134,9 @@ ax=tryCatch({kpPlotMarkers(kp, data=genes, labels=genes$hgnc_symbol, text.orient
 
 ```
 
-```{r}
+`r ifelse(length(genes)==0, print('There are no SVs intersecting ACMG genes'), print('')) `
+
+```{r SV-ACMG}
 # label parameters to view by default
 viewIdx=c("SV_ID","CHROM", "START","END", "GenesOfInterest", "Cosmic", "Haploinsufficiency", "Triplosensitivity", "OMIM_morbid", "ACMG")
 HideIdx=setdiff(1:ncol(S3), match(viewIdx, colnames(S3)))-1
