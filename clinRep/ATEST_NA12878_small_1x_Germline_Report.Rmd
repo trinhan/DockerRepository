@@ -1,0 +1,262 @@
+---
+title: "Genomics Report: Research Use Only"
+date: "`r Sys.Date()`"
+output: 
+ html_document: 
+   fig_caption: yes
+---
+
+<style>
+  .col2 {
+    columns: 2 200px;         /* number of columns and width in pixels*/
+    -webkit-columns: 2 200px; /* chrome, safari */
+    -moz-columns: 2 200px;    /* firefox */
+  }
+  .col3 {
+    columns: 3 100px;
+    -webkit-columns: 3 100px;
+    -moz-columns: 3 100px;
+  }
+</style>
+
+<style type="text/css">
+.main-container {
+  max-width: 3000px;
+  margin-left: auto;
+  margin-right: auto;
+}
+</style>
+
+```{r setup, include=FALSE}
+library(kableExtra)
+library(gplots)
+library(ggplot2)
+library(yaml)
+library(DT)
+library(knitr)
+library(circlize)
+library(plotly)
+library(RColorBrewer)
+library(biomaRt)
+library(karyoploteR)
+
+#########
+## 1. Requirements in the YAML file:
+##  Sample - Sample ID
+##  snvmaf - csv file of filtered samples
+##  germlinemaf - csv file for potential germline variants
+##  gatk4cnvFig - plot of modeled segments
+##  gatk4cnvSeg - segments of modeled segments 
+##  manta - annotSV annotated manta file
+##  Outputdir: where to save temporary output files
+##  ClinRep: clinical information to include
+
+knitr::opts_chunk$set(echo = FALSE, warning = F, fig.width=12, fig.height=8, warning = F)
+data=read_yaml("final.yml")
+paramfile=read_yaml("parameter.json")
+source("R/FilterCNVs.R")
+source("R/CreateGRangesData.R")
+source("R/FilterSVs.R")
+load("./annotFiles/ensembl_granges_genes_290722.RData")
+```
+
+### Sample Information
+ 
+```{r, warning=FALSE}
+# Print out patient information
+x1=which(names(data)=="SNVsummary")
+clinSum=unlist(data[1:(x1-1)])
+kable((clinSum), col.names = c("Patient Information"))
+```
+
+# Genomic Information {.tabset}
+
+## Germline Variants
+
+```{r evaluate-SNVs-exist}
+# Check whether SNV data exists in order to run the child .Rmd
+runSNVs=ifelse(is.null(data$SNVsummary), F, T)
+```
+
+`r ifelse(runSNVs==F, print('SNV data not available for this sample'), print(""))`
+
+```{r child = 'germlineSNV-insert.Rmd', eval=runSNVs}
+```
+
+## Copy Number Variants
+
+```{r evaluate-CNVs-exist}
+## Calculate whether the AnnotCNV file exists and is populated
+RunCV=ifelse(is.null(data$gCNVAnnotSV), F, T)
+EvalCNV=RunCV
+EvalCNV2=F
+
+if (EvalCNV){
+  opts=list(tsv=data$gCNVAnnotSV, CNlow=1, CNhigh=3, ACMGcutoff=4)
+  AnnotCNV=FilterCNVs(opts) ## run this outside?
+  EvalCNV2=ifelse(nrow(AnnotCNV$T1)>0, T, F)
+}
+```
+
+`r ifelse(RunCV==F, print('CNV data not available for this sample'), print(""))`
+`r ifelse(EvalCNV2==F, print('Analysis did not return any CNVs'), print(""))`
+
+```{r child = 'gatk-cnv-germline-insert.Rmd', eval=EvalCNV}
+```
+
+## Structural Variants
+
+```{r evaluate-SVs-exist}
+# Check whether the SV file exists
+RunSV=ifelse(is.null(data$gSVAnnotSV), F, T)
+EvalSV=RunSV
+```
+
+`r ifelse(RunSV==F, print('SV data not available for this sample'), print("")) `
+
+```{r evaluate-SV-length, eval=RunSV}
+# Check whether the SV file has length >0
+AnnotSV2=read.delim(data$gSVAnnotSV)
+## remove:  &
+AnnotSV=AnnotSV2[which(AnnotSV2$ACMG_class>=paramfile$AnnotSVACMGcutoff & AnnotSV2$MeanVAF>=paramfile$SVVAF), ]
+
+if (EvalSV){
+  opts=list(tsv=data$gSVAnnotSV, VAF=0.25, ACMGcutoff=4)
+  AnnotSV=FilterSVs(opts) ## run this outside?
+  EvalSV=ifelse(nrow(AnnotSV$S1)>0, T, F)
+}
+
+EvalSV=ifelse(nrow(AnnotSV)>0, T, F)
+```
+
+`r ifelse(EvalSV==F, print('There are no SVs detected in this sample!'), print(""))`
+
+```{r child = 'SV-Run.Rmd', eval=EvalSV}
+```
+
+## Ploidy Summary
+
+```{r}
+CallPloidy=ifelse(is.null(data$ploidyFile), F, T)
+```
+
+`r ifelse(CallPloidy==F, print('Ploidy information is not available for this sample'), print("")) `
+
+```{r, eval=CallPloidy}
+PloidyVals=read.delim(data$ploidyFile, skip=1)
+whichDiff=which(PloidyVals[1:22, 2]!=2)
+isX=ifelse(PloidyVals[23,2]==2 & PloidyVals[24,2]==0, "female", ifelse(PloidyVals[23,2]==1 & PloidyVals[24,2]==1, "male", "unsure"))
+```
+
+`r ifelse(CallPloidy==T & length(whichDiff)==0, sprintf('All autosomes have normal ploidy and the patient is %s', isX), sprintf("Chromosome %s has aberrant ploidy and the patient is %s", whichDiff, isX))`
+
+```{r, eval=CallPloidy, fig.width= 6, fig.height=7}
+barplot(PloidyVals[24:1 ,2], names.arg = PloidyVals[ 24:1,1], horiz=T, las=2, xlab = "Counts")
+#DT::datatable(PloidyVals, rownames = F, options=list(pageLength = 24))
+```
+
+## Overview
+
+```{r}
+RunOverview=ifelse(EvalSV==T & EvalCNV==T, T, F)
+RunOverviewSV=ifelse(EvalSV==T & EvalCNV==F, T, F)
+RunOverviewCNV=ifelse(EvalSV==F & EvalCNV==T, T, F)
+```
+
+```{r child='overview-germline.Rmd', eval=RunOverview}
+```
+
+```{r child='overview-germline-SNV-SV.Rmd', eval=RunOverviewSV}
+```
+
+```{r child='overview-germline-CNV-SNV.Rmd', eval=RunOverviewCNV}
+```
+
+## Interpretation Guide
+
+NB: Some tables have hidden columns to aid in readability, these can be toggled. Tables can further be filtered using tabs beneath the column name
+
+#### Reference Genome
+
+Samples are aligned to the hg38 Human reference genome
+
+#### Germline SNVs
+
+Filtering summary:
+
+* SNVs must be called by at least two independent callers (Strelka2, HaplotypeCaller GATK or Pisces). 
+* Variants in coding or promoter regions and are predicted to affect gene expression (eg. oncokb defined as oncogenic, ClinVar pathogenic risk factor and protective)
+* Variants appearing in intergenic regions, pseudogenes or non-coding variants are excluded from this analysis
+
+Variants have been grouped into 5 main clusters:
+
+* *Tier A: Cancer Related* These genes have been documented to be oncogenic or tumour suppressors
+* *Tier B: Pathway Related* Variants in genes that affect pathways which are related to the mode of action of the treatment
+* *Tier C: Protective or drug related* These variants have been documented to have either a protective effect, or can influence the efficacy of drug treatments
+* *Tier D: Variants of Unknown Significance* These variants are predicted to be highly deleterious but do not appear in any of the previous categories
+* *Tier E: ACMG variants* These variants lie in genes listed by ACMG 
+
+#### CNVs
+
+Germline CNV calling using GATK CNV in cohort mode. Assumes diploid genome
+
+Definitions: (assuming normal is diploid)
+
+  * Hom Loss: Inferred CN 0
+  * Het Loss: Inferred CN 1
+  * Gain: Inferred CN 3+
+  
+Break points annotated using AnnotSV. 
+
+Additional Annotations:
+
+* ACMG: score of 4 or 5 indicates likely pathogenicity or pathogenicity from AnnotSV algorithm
+* Population frequencies of variants beginning at the same start point from DDD or gnomadSV
+* HallmarkPathways annotated using MSigDB
+* Cosmic: Genes of interest have been indicated as having an oncogenic or TSG function by Cosmic
+* Genes of Interest: Additional GOIs from a user-defined list
+* GTex: a z-score of the expression of the defined gene in the tissue of interest (e.g. skin for melanoma) compared to all other tissues. Higher value indicates higher expression in tissue of interest.
+* ClinGen: Haploinsufficiency and Triplosensitivity scores [0-3] with 3 indicating highest evidence. Scores of 30/40 indicate evidence against dosage sensitivity (i.e. benign)
+* pLI: intolerance to protein truncating variants from gnomad or ExAC [0 -1]: closer to 1 is predicted intolerance
+* OMIM: disease annotation from OMIM and morbidity from loss
+
+
+#### Structural Variants
+
+Structural Variants are identified using Manta
+
+Shown are variants scored level 3, 4 or 5 (most deleterious) ACMG class
+Variant Allele Frequency must be greater than 25%
+
+Additional Annotations:
+
+* ACMG: score of 4 or 5 indicates likely pathogenicity or pathogenicity from AnnotSV algorithm
+* Population frequencies of variants beginning at the same start point from DDD or gnomadSV
+* HallmarkPathways annotated using MSigDB
+* Cosmic: Genes of interest have been indicated as having an oncogenic or TSG function by Cosmic
+* Genes of Interest: Additional GOIs from a user-defined list
+* GTex: a z-score of the expression of the defined gene in the tissue of interest (e.g. skin for melanoma) compared to all other tissues. Higher value indicates higher expression in tissue of interest.
+* ClinGen: Haploinsufficiency and Triplosensitivity scores [0-3] with 3 indicating highest evidence. Scores of 30/40 indicate evidence against dosage sensitivity (i.e. benign)
+* pLI: intolerance to protein truncating variants from gnomad or ExAC [0 -1]: closer to 1 is predicted intolerance
+* OMIM: disease annotation from OMIM and morbidity from loss
+
+## Methods
+
+|Purpose | Software |  Versions|
+|:---:|:---------------:|:-----:|
+|**Reference Genome** | hg38 |  |
+|Alignment |[bwa-mem](http://bio-bwa.sourceforge.net/) using [GATK best practices](https://gatk.broadinstitute.org/hc/en-us/articles/360035535912-Data-pre-processing-for-variant-discovery)  | |
+|**SNV calling** | | |
+| |[Haplotypecaller (CNN filtering)](https://gatk.broadinstitute.org/hc/en-us/articles/360037225632-HaplotypeCaller)| [gatk:4.2.0.0](us.gcr.io/broad-gatk/gatk:4.2.0.0)|
+| |[Pisces](https://github.com/Illumina/Pisces) | [v5.2.10.49](https://hub.docker.com/repository/docker/trinhanne/pisces)|
+| |[Strelka2](https://github.com/Illumina/strelka/releases) | [v2.9.10](https://hub.docker.com/r/erictdawson/strelka2)|
+| |[Vardict](https://github.com/AstraZeneca-NGS/VarDict) | [v1.8.3](quay.io/biocontainers/vardict-java:1.8.3--hdfd78af)|
+**CNV calling & Ploidy Estimation** | | 
+|-|[GATK4 CNV](https://gatk.broadinstitute.org/hc/en-us/articles/360035531092--How-to-part-I-Sensitively-detect-copy-ratio-alterations-and-allelic-segments)| [v4.1.7.0](https://dockstore.org/workflows/github.com/broadinstitute/gatk/cnv_somatic_pair_workflow:4.1.7.0)|
+**Structural Variants** | | |
+ |- | [Manta](https://github.com/Illumina/manta) | [Manta: v1.6.0](https://quay.io/repository/biocontainers/vardict-java?tab=tags&tag=1.8.3--hdfd78af_) |
+**Annotation** | | |
+SNV|[VEP104](https://asia.ensembl.org/info/docs/tools/vep/index.html)| [CADDr3.0](https://cadd.gs.washington.edu/download) [ClinVar20211030](https://ftp.ncbi.nlm.nih.gov/pub/clinvar/) [revel-v1.3](https://sites.google.com/site/revelgenomics/downloads)
+SNV|[Oncokb](https://www.oncokb.org/)| [v3.1.1](https://github.com/oncokb/oncokb-annotator)
+CNV|[AnnotSV](https://www.lbgi.fr/AnnotSV/)| [v3.0.5](https://www.lbgi.fr/AnnotSV/)
+SV|[AnnotSV](https://www.lbgi.fr/AnnotSV/)| [v3.0.5](https://www.lbgi.fr/AnnotSV/)

@@ -1,0 +1,1692 @@
+---
+title: "MPNST DMR report"
+date: "`r format(Sys.time(), '%d %B %Y')`"
+output: pdf_document
+geometry: margin=1.5cm
+---
+
+<style type="text/css">
+
+body{ /* Normal  */
+  font-size: 16px;
+}
+</style>
+
+<!-- to knit document:
+library(rmarkdown)
+rmarkdown::render(file.path(project_dir, "scripts/5.filter_DMR.Rmd"), output_file=file.path(out_path, "DMR_report_all_MPNST.pdf"))
+ -->
+
+
+```{r, variables_paths_functions, include = FALSE}
+
+  library(knitr)
+  library(tibble)
+  library(dplyr)
+  library(stringr)
+  library(ggplot2)
+  library(cowplot)
+  library(SummarizedExperiment)
+  library(reshape2)
+  library(picante)
+  library(pheatmap)
+  library(RColorBrewer)
+
+  sub <- F
+  cand_beta_thresh <- 0.3  # for determining which samples are positive or negative
+  # for chosen candidates
+  
+  # define and create directories:
+  #home_dir <- "/Users/torpor/clusterHome/"
+  home_dir <- "/share/ScratchGeneral/jamtor"
+  project_dir <- file.path(home_dir, "projects/MPNST_ctMet")
+  script_dir <- file.path(project_dir, "scripts")
+  func_dir <- file.path(script_dir, "functions")
+  genome_dir <- file.path(project_dir, "genome")
+  ref_dir <- file.path(project_dir, "refs")
+  raw_dir <- file.path(project_dir, "raw_files")
+  result_dir <- file.path(project_dir, "results")
+
+  in_path <- file.path(result_dir, "DMR")
+
+  beta_in <- file.path(raw_dir, "Rdata")
+  sample_info_in <- file.path(result_dir, "beta_values/Rdata")
+  dmr_in <- file.path(result_dir, "DMR/tables")
+
+  common_Robject_dir <- file.path(in_path, "Rdata")
+  dir.create(common_Robject_dir, recursive = T)
+
+  source("/home/jamtor/base.R")
+  source(file.path(func_dir, "5.filter_DMR_functions.R"))
+  
+  # Load colours/functions:
+  plot_cols <- read.table(
+    file.path(ref_dir, "custom_colour_palette.txt"),
+    sep = "\t",
+    header = F,
+    comment.char = "" )
+
+  ann_colors1 = list(
+    Status = c(hypermethylated = "#F4D30B", hypomethylated = "#1B9E77"),
+    Condition = c(MPNST = "black", pNF = "#A6761D"),
+    Source = c(koelsche.reference = "#7C1BE2", koelsche.validation = "#E7298A",
+      lyskjaer = "#58B9DB", TCGA = "blue" ),
+    Type = c(koelsche.reference.MPNST = "#7C1BE2", 
+      koelsche.reference.pNF = "brown", koelsche.validation.MPNST = "#E7298A",
+      lyskjaer.MPNST = "#58B9DB", TCGA.MPNST = "blue"),
+    Cellularity = c("#2694B4", "#003D4F", "grey"),
+    Grade = c(brewer.pal(8, "OrRd")[c(4, 6, 8)], "grey"),
+    H3K27me3 = c(H3K27me3.retained = "#7CBA61", H3K27me3.loss = "#E7298A", 
+      not_specified = "grey"),
+    SUZ12 = c("#4EA7C0", brewer.pal(8, "Reds")[c(2, 4, 6)], "grey"),
+    EED = c(normal = "#4EA7C0", LOH = "#C1A38F", mutation = "#BF713F", 
+      LOH_and_mutation = "#522202", not_specified = "grey"),
+    Sex = c("blue", "#E78AC3", "grey"),
+    Nerve.origin = c("#C99609", "#996CC8", "#FFD92F", "grey"),
+    NF1.assoc = c("#1B9E77", "#A6D854", "grey") )
+  names(ann_colors1$Cellularity) <- c("< 0.5", "> 0.5", "not_specified")
+  names(ann_colors1$Grade) <- c("grade.1", "grade.2", "grade.3", "not_specified")
+  names(ann_colors1$SUZ12) <- c("normal", "LOH", "mutation", "LOH_and_mutation", 
+    "not_specified")
+  names(ann_colors1$Sex) <- c("male", "female", "not_specified")
+  names(ann_colors1$Nerve.origin) <- c("Y", "N", "Presumed", "not_specified")
+  names(ann_colors1$NF1.assoc) <- c("Y", "N", "not_specified")
+
+  ann_colors2 = list(
+    Status = c(hypermethylated = "#F4D30B", hypomethylated = "#1B9E77"),
+    Condition = c(MPNST = "black", pNF = "#A6761D"),
+    Source = c(koelsche.reference = "#7C1BE2", koelsche.validation = "#E7298A",
+      lyskjaer = "#58B9DB", TCGA = "blue" ),
+    Diagnosis = c(brewer.pal(5, "Set1"), "grey"),
+    Orig.histo.group = c(brewer.pal(6, "Set2")[-4], "#7C1BE2", "grey"),
+    Revised.histo.group = c(brewer.pal(6, "Set2")[-4], "#7C1BE2", "grey") )
+  names(ann_colors2$Diagnosis) <- c("RT_assoc_MPNST", "MPNST", "sarcoma_NOS", 
+    "UPS", "pNF", "not_specified" )
+  names(ann_colors2$Orig.histo.group) <- c("classicalhetero_MPNST", 
+    "nonclassical_MPNST", "classical_MPNST", "sarcoma_NOS", 
+    "benign_or_grade1_MPNST", "UPS", "not_specified" )
+  names(ann_colors2$Revised.histo.group) <- c("classicalhetero_MPNST", 
+    "nonclassical_MPNST", "classical_MPNST", "sarcoma_NOS", 
+    "benign_or_grade1_MPNST", "UPS", "not_specified" )
+
+```
+
+
+```{r, load_data, echo = FALSE, warning = FALSE, message = FALSE, results = 'hide'}
+
+  # prepare summary df:
+  sample_summary <- readRDS(file.path(sample_info_in, "sample_summary.rds"))
+  colnames(sample_summary) <- gsub("_", " ", colnames(sample_summary))
+  rownames(sample_summary) <- NULL
+  
+  initial_DMR <- read.table(
+    paste0(dmr_in, "/unfiltered_sig_MPNST_vs_pNF_DMR.tsv"),
+    header = T, sep = "\t" )
+  rownames(initial_DMR) <- initial_DMR$probe_id
+
+  # remove non-significant DMR if needed:
+  DMR <- initial_DMR[initial_DMR$pval_adj < 0.05, ]
+
+  # record probe_no:
+  DMR_record <- record_probes(dmr = DMR, current_record = "none", label = "unfilt")
+
+  if (sub) {
+    # load beta values:
+    all_beta1 <- readRDS(file.path(common_Robject_dir, "all_beta1_sub.rds"))
+    all_beta2 <- readRDS(file.path(common_Robject_dir, "all_beta2_sub.rds"))
+    DMR <- readRDS(file.path(common_Robject_dir, "filtered_dmr_sub.rds"))
+  } else {
+    if (!file.exists(file.path(common_Robject_dir, "all_beta1.rds"))) {
+      # load beta values:
+      orig_MPNST_beta <- readRDS(file.path(beta_in, "MPNST_beta.rds"))
+      orig_pNF_beta <- readRDS(file.path(beta_in, "pNF_beta.rds"))
+      blood_beta <- readRDS(file.path(beta_in, "blood_beta.rds"))
+      nonmalig_beta <- readRDS(file.path(beta_in, "TCGA_nonmalig_beta.rds"))
+      nonmalig_merged <- do.call("cbind", 
+        nonmalig_beta[!(names(nonmalig_beta) %in% c("liver", "kidney"))])
+      colnames(nonmalig_merged) <- gsub("^.*\\.", "", 
+        sub("_[^_]+$", "_nonmalig", colnames(nonmalig_merged) )) 
+    
+      # collect all beta values in list with nonmalig merged:
+      all_beta1 <- c(
+        MPNST = list(do.call("cbind", orig_MPNST_beta)),
+        orig_MPNST_beta,
+        pNF = list(orig_pNF_beta),
+        blood = list(blood_beta),
+        liver = list(nonmalig_beta$liver),
+        kidney = list(nonmalig_beta$kidney),
+        nonmalig = list(nonmalig_merged) )
+      colnames(all_beta1$MPNST) <- gsub("^.*MPNST\\.", "", colnames(all_beta1$MPNST))
+    
+      # and not merged:
+      all_beta2 <- c(
+        MPNST = list(do.call("cbind", orig_MPNST_beta)),
+        orig_MPNST_beta,
+        pNF = list(orig_pNF_beta),
+        blood = list(blood_beta),
+        liver = list(nonmalig_beta$liver),
+        kidney = list(nonmalig_beta$kidney),
+        nonmalig_beta )
+      colnames(all_beta2$MPNST) <- gsub("^.*MPNST\\.", "", colnames(all_beta2$MPNST))
+
+      # find common probes:
+      common_probes <- Reduce(intersect, lapply(all_beta1, rownames))
+
+      # find dmr probes:
+      dmr_probes <- Reduce(intersect, lapply(c(all_beta1, list(DMR)), rownames))
+
+      # filter out non-dmr probes:
+      all_beta1 <- lapply(all_beta1, function(x) x[dmr_probes,])
+      all_beta2 <- lapply(all_beta2, function(x) x[dmr_probes,])
+
+      DMR <- DMR[dmr_probes,]
+
+      saveRDS(all_beta1, file.path(common_Robject_dir, "all_beta1.rds"))
+      saveRDS(all_beta2, file.path(common_Robject_dir, "all_beta2.rds"))
+      saveRDS(DMR, file.path(common_Robject_dir, "filtered_dmr.rds"))
+      saveRDS(common_probes, file.path(common_Robject_dir, "filtered_dmr_probes.rds"))
+
+    } else {
+      # load beta values:
+      all_beta1 <- readRDS(file.path(common_Robject_dir, "all_beta1.rds"))
+      all_beta2 <- readRDS(file.path(common_Robject_dir, "all_beta2.rds"))
+      DMR <- readRDS(file.path(common_Robject_dir, "filtered_dmr.rds"))
+      common_probes <- readRDS(file.path(common_Robject_dir, "filtered_dmr_probes.rds"))
+    }
+  }
+
+  MPNST_beta <- all_beta1[grep("_MPNST", names(all_beta1))]
+
+```
+
+
+```{r, calculate stats, echo = FALSE, warning = FALSE, message = FALSE, results = 'hide'}
+
+  if (sub) {
+    DMR_path <- file.path(common_Robject_dir, "unfiltered_dmr_sub.rds")
+  } else {
+    DMR_path <- file.path(common_Robject_dir, "unfiltered_dmr.rds")
+  }
+
+  if (!file.exists(DMR_path)) {
+
+    # calculate stats for all beta dfs:
+    for (i in seq_along(all_beta1)) {
+      if (i==1) {
+        stats_list <- list(calc_stats(beta = all_beta1[[i]], dmr = DMR, 
+          data_source = names(all_beta1)[i] ))
+        names(stats_list)[i] <- names(all_beta1)[i]
+      } else {
+        stats_list[[i]] <- calc_stats(beta = all_beta1[[i]], dmr = DMR, 
+          data_source = names(all_beta1)[i] )
+        names(stats_list)[i] <- names(all_beta1)[i]
+      }
+    }
+
+    # keep common probes only:
+    stats_probes <- Reduce(intersect, lapply(stats_list, rownames))
+    stats_list <- lapply(stats_list, function(x) x[stats_probes,])
+    DMR <- DMR[stats_probes,]
+  
+    # merge stats with dmr:
+    DMR <- DMR %>% 
+      merge(do.call("cbind", stats_list), by = 0) %>%
+      column_to_rownames("Row.names")
+    colnames(DMR) <- gsub("^.*?\\.", "", colnames(DMR))
+    
+    saveRDS(DMR, DMR_path)
+
+  } else {
+    DMR <- readRDS(DMR_path)
+  }
+
+  # load pca plot:
+  pca_plot <- readRDS(file.path(sample_info_in, "methylation_pca_plot.rds"))
+
+```
+
+The following methylation data was downloaded:
+
+```{r, print_sample_summary, echo = FALSE, warning = FALSE}
+   kable(sample_summary)
+```
+
+**`r length(common_probes)`** probes were present across all groups and kept for analysis
+
+\newpage
+
+Checked PCA plot for batch effects:
+
+```{r, print_pca, echo = FALSE, warning = FALSE, fig.height = 3.5, fig.width = 7}
+  pca_plot
+```
+
+MPNST outliers:\
+  koelsche.reference_718, koelsche.reference_745, koelsche.reference_848, koelsche.validation_v113, \
+  lyskjaer_2_MPNST, lyskjaer_17_MPNST, lyskjaer_25_MPNST, lyskjaer_53_MPNST, lyskjaer_81_MPNST, \
+  lyskjaer_85_MPNST, lyskjaer_103_MPNST, lyskjaer_105_MPNST, lyskjaer_136_MPNST, \
+  TCGA_QQA8VG01, TCGA_RNA68Q01_MPNST, TCGA_RNAAAQ01, TCGA_SIA71P01 (PC1 cutoff -200)
+
+&nbsp;
+
+Due to batch effects, only Koelsche reference MPNST (n=33) and pNF (n=7) samples were used for differential methylation
+analysis
+
+&nbsp;
+
+Filtered differentially methylated probe candidates:\
+
+```{r, cutoffs, echo = TRUE, warning = FALSE, message = FALSE, results = 'hide'}
+      
+  pval_cutoff <- 10^-4
+  beta_cutoff <- 0.35
+  MPNST_cutoff <- "none"
+  pNF_cutoff <- 0.2
+  blood_cutoff <- 0.2
+  nonmalig_cutoff <- 0.2 
+
+```
+
+
+```{r, define_outdirs, echo = FALSE, warning = FALSE, message = FALSE, results = 'hide'}
+
+  min_sample_per_probe <- 5
+  plot_min_sample_no <- 10
+  plot_candidate_no <- 10
+  max_heatmap <- 80
+
+  out_path <- paste0(in_path, 
+    "/beta_", beta_cutoff, "_",
+    "pval_", pval_cutoff, "_",
+    "MPNST_", MPNST_cutoff, "_",
+    "pNF_", pNF_cutoff, "_",
+    "blood_", blood_cutoff, "_",
+    "nonmalig_", nonmalig_cutoff )
+
+  if (sub) {
+    out_path <- file.path(out_path, "sub")
+  }
+
+  Robject_dir <- file.path(out_path, "Rdata")
+  dir.create(Robject_dir, recursive = T)
+  plot_dir <- file.path(out_path, "plots")
+  dir.create(plot_dir)
+  table_dir <- file.path(out_path, "tables")
+  dir.create(table_dir)
+  
+  print(paste0("Output candidate plots are in ", plot_dir))
+
+  # define record plot labels
+  if (MPNST_cutoff == "none") {
+    plot_labs <- data.frame(
+    table_label = c("beta", "pNF", "blood", "liver", "kidney", "nonmalig"),
+    plot_label = c(
+      paste0("Mean beta diff./FDR filter\n(cutoffs ", beta_cutoff, "/", pval_cutoff, ")"),
+      paste0("Low/high median pNF\nbeta filter (cutoffs ", pNF_cutoff,
+        "/", (1-pNF_cutoff), ")"),
+      paste0("Low/high median blood\nbeta filter (cutoffs ", blood_cutoff,
+        "/", (1-blood_cutoff), ")"),
+      paste0("Low/high median liver\nbeta filter (cutoffs ", nonmalig_cutoff,
+        "/", (1-nonmalig_cutoff), ")"),
+      paste0("Low/high median kidney\nbeta filter (cutoffs ", nonmalig_cutoff,
+        "/", (1-nonmalig_cutoff), ")"),
+      paste0("Low/high median non-malignant\nbeta filter (cutoffs ", nonmalig_cutoff,
+          "/", (1-nonmalig_cutoff), ")") ))
+  } else {
+    plot_labs <- data.frame(
+    table_label = c("beta", "koelsche_MPNST", "lyskjaer_MPNST", "TCGA_MPNST", 
+      "pNF", "blood", "liver", "kidney", "nonmalig"),
+    plot_label = c(
+      paste0("Mean beta diff./FDR filter\n(cutoffs ", beta_cutoff, "/", pval_cutoff, ")"),
+      paste0("High/low median koelsche MPNST\nbeta filter (cutoffs ", MPNST_cutoff,
+        "/", (1-MPNST_cutoff), ")"),
+      paste0("High/low median lyskjaer MPNST\nbeta filter (cutoffs ", MPNST_cutoff,
+        "/", (1-MPNST_cutoff), ")"),
+      paste0("High/low median TCGA MPNST\nbeta filter (cutoffs ", MPNST_cutoff,
+        "/", (1-MPNST_cutoff), ")"),
+      paste0("Low/high median pNF\nbeta filter (cutoffs ", pNF_cutoff,
+        "/", (1-pNF_cutoff), ")"),
+      paste0("Low/high median blood\nbeta filter (cutoffs ", blood_cutoff,
+        "/", (1-blood_cutoff), ")"),
+      paste0("Low/high median liver\nbeta filter (cutoffs ", nonmalig_cutoff,
+        "/", (1-nonmalig_cutoff), ")"),
+      paste0("Low/high median kidney\nbeta filter (cutoffs ", nonmalig_cutoff,
+        "/", (1-nonmalig_cutoff), ")"),
+      paste0("Low/high median non-malignant\nbeta filter (cutoffs ", nonmalig_cutoff,
+          "/", (1-nonmalig_cutoff), ")") ))
+  }
+
+```
+
+```{r, filter_p, echo = TRUE, warning = FALSE, message = FALSE, results = 'hide'}
+      
+  # filter probes by methylation difference and p-values:
+  DMR <- DMR[DMR$pval_adj < pval_cutoff &
+    abs(DMR$mean_diff_MPNST_vs_pNF) >= beta_cutoff, ]
+
+```
+
+```{r, filter_p_record, echo = FALSE, warning = FALSE, message = FALSE, results = 'hide'}
+      
+  # record probe_no:
+  DMR_record <- record_probes(dmr = DMR, current_record = DMR_record, label = "beta_filt")
+
+```
+
+
+```{r, filter_MPNST, echo = FALSE, warning = FALSE, message = FALSE, results = 'hide'}
+
+  if (MPNST_cutoff != "none") {
+    for (i in seq_along(MPNST_beta)) {
+      MPNST_median <- DMR[,paste0(names(MPNST_beta)[i], "_median")]
+  
+      # filter probes by median of each MPNST group:
+      DMR <- DMR[(DMR$status == "hypermethylated" & MPNST_median >= MPNST_cutoff) | 
+        (DMR$status == "hypomethylated" & MPNST_median < (1-MPNST_cutoff)), ]
+  
+      # record probe no:
+      DMR_record <- record_probes(DMR, DMR_record, label = names(MPNST_stats)[i])
+    }
+  }
+  
+```
+
+```{r, filter_pNF, echo = TRUE, warning = FALSE, message = FALSE, results = 'hide'}
+
+  # filter probes by pNF median:
+  DMR <- DMR[(DMR$status == "hypermethylated" & DMR$pNF_median < pNF_cutoff) | 
+    (DMR$status == "hypomethylated" & DMR$pNF_median >= (1-pNF_cutoff)), ]
+ 
+```
+
+```{r, filter_pNF_record, echo = FALSE, warning = FALSE, message = FALSE, results = 'hide'}
+
+  # record probe no:
+  DMR_record <- record_probes(DMR, DMR_record, label = "pNF")
+ 
+```
+
+
+```{r, filter_blood, echo = TRUE, warning = FALSE, message = FALSE, results = 'hide'}
+  
+  # filter probes by blood median:
+  DMR <- DMR[(DMR$status == "hypermethylated" & DMR$blood_median < blood_cutoff) | 
+    (DMR$status == "hypomethylated" & DMR$blood_median >= (1-blood_cutoff)), ]
+ 
+```
+
+```{r, filter_blood_record, echo = FALSE, warning = FALSE, message = FALSE, results = 'hide'}
+  
+  # record probe no:
+  DMR_record <- record_probes(DMR, DMR_record, label = "blood")
+ 
+```
+
+
+```{r, filter_liver, echo = TRUE, warning = FALSE, message = FALSE, results = 'hide'}
+
+  # filter probes by liver median:
+  DMR <- DMR[(DMR$status == "hypermethylated" & DMR$liver_median < nonmalig_cutoff) | 
+    (DMR$status == "hypomethylated" & DMR$liver_median >= (1-nonmalig_cutoff)), ]
+ 
+```
+
+```{r, filter_liver_record, echo = FALSE, warning = FALSE, message = FALSE, results = 'hide'}
+
+  # record probe no:
+  DMR_record <- record_probes(DMR, DMR_record, label = "liver")
+ 
+```
+
+
+```{r, filter_kidney, echo = TRUE, warning = FALSE, message = FALSE, results = 'hide'}
+
+  # filter probes by kidney median:
+  DMR <- DMR[(DMR$status == "hypermethylated" & DMR$kidney_median < nonmalig_cutoff) | 
+    (DMR$status == "hypomethylated" & DMR$kidney_median >= (1-nonmalig_cutoff)), ]
+
+```
+
+```{r, filter_kidney_record, echo = FALSE, warning = FALSE, message = FALSE, results = 'hide'}
+
+  # record probe no:
+  DMR_record <- record_probes(DMR, DMR_record, label = "kidney")
+ 
+```
+
+
+```{r, filter_nonmalig, echo = TRUE, warning = FALSE, message = FALSE, results = 'hide'}
+
+  # filter probes by nonmalig median:
+  DMR <- DMR[(DMR$status == "hypermethylated" & DMR$nonmalig_median < nonmalig_cutoff) | 
+    (DMR$status == "hypomethylated" & DMR$nonmalig_median >= (1-nonmalig_cutoff)), ]
+
+```
+
+```{r, filter_nonmalig_record, echo = FALSE, warning = FALSE, message = FALSE, results = 'hide'}
+
+  # record probe no:
+  DMR_record <- record_probes(DMR, DMR_record, label = "nonmalig")
+ 
+```
+
+
+```{r, plot_record, echo = FALSE, warning = FALSE, message = FALSE, results = 'hide'}
+
+  plabels <- plot_labs$plot_label[
+    plot_labs$table_label %in% gsub("_.*$", "", DMR_record$filt) ]
+
+  record_plot <- plot_DMR_record(
+    record_df = DMR_record[grep("unfilt", DMR_record$filt, invert = T),], 
+    labels = plabels, 
+    cols = ann_colors1$Status )
+
+  # save record plot:
+  png(file.path(plot_dir, "filtration_record_plot.png"))
+    record_plot
+  dev.off()
+  pdf(file.path(plot_dir, "filtration_record_plot.pdf"))
+    record_plot
+  dev.off()
+  saveRDS(record_plot, file.path(Robject_dir, "filtration_record_plot.rds"))
+
+```
+
+&nbsp;
+
+```{r, record_plot, echo = FALSE, warning = FALSE, message = FALSE, results = 'hide', fig.height = 5.5, fig.width = 10}
+  record_plot
+```
+
+
+```{r, format_final_DMR, echo = FALSE, warning = FALSE, message = FALSE, results = 'hide'}
+
+  # order and format DMR:
+  DMR <- arrange(DMR, status, pval_adj, desc(abs(mean_diff_MPNST_vs_pNF)))
+
+  # merge and remove quantile values:
+  DMR_table <- DMR[, grep("quantile", colnames(DMR), invert = T)]
+
+  # round pvals and order:
+  DMR_table$pval_adj <- gsub("0e", "e", 
+    formatC(DMR_table$pval_adj, format = "e", digits = 3) )
+  DMR_table <- arrange(DMR_table, status, pval_adj, desc(abs(mean_diff_MPNST_vs_pNF)))
+
+  # save final candidates:
+  saveRDS(DMR, file.path(Robject_dir, "DMR_final.rds"))
+
+  write.table(
+    DMR_table, 
+    file.path(table_dir, "final_DMR_summary.tsv"), 
+    row.names = F, col.names = T, quote = F, sep = "\t" )
+
+  write.table(
+    DMR_record,
+    file.path(table_dir, "DMR_counts.txt"),
+    row.names = T, col.names = T, quote = F, sep = "\t" )
+  
+```
+
+
+```{r, volcano, echo = FALSE, warning = FALSE, message = FALSE, results = 'hide'}
+
+  library(ggplot2)
+  library(ggrepel)
+  library(cowplot)
+
+  probe_labs <- c(IRF6_DMprobe="cg25204440", IRF6.alt_DMprobe="cg22442454",
+    TXNRD1_DMprobe="cg14142965",
+    TSGA14_DMprobe="cg04575058", TSGA14.alt_DMprobe="cg05751159",
+    SLC1A2_DMprobe="cg21163960" )
+  
+  # annotate significance/selection:
+  volc_DMR <- initial_DMR
+  volc_DMR$sig <- "non_sig"
+  volc_DMR$sig[volc_DMR$pval_adj < 0.05] <- "sig"
+  volc_DMR$sig[
+    volc_DMR$probe_id %in% DMR_table$probe_id] <- "selected_candidates"
+  volc_DMR$sig[
+    volc_DMR$probe_id %in% probe_labs] <- "shortlisted_candidates"
+
+  # reorder candidates to plot selected last:
+  volc_DMR$sig <- factor(volc_DMR$sig, levels = c("non_sig", "sig", 
+    "selected_candidates", "shortlisted_candidates" ))
+  volc_DMR <- volc_DMR[order(volc_DMR$sig),]
+
+  # reorder significance levels for legend:
+  volc_DMR$sig <- factor(volc_DMR$sig, levels = c("shortlisted_candidates", 
+    "selected_candidates", "sig", "non_sig" ))
+
+  # label genes manually:
+  volc_DMR$label <- FALSE
+  volc_DMR$label[volc_DMR$probe_id %in% probe_labs ] <- TRUE
+
+  # remove alternate names of genes:
+  volc_DMR$gene[volc_DMR$probe_id %in% probe_labs] <- gsub(";.*$", "", 
+    volc_DMR$gene[volc_DMR$probe_id %in% probe_labs] )
+    
+  # label alternate probes of genes:
+  volc_DMR$gene[
+    volc_DMR$probe_id %in% probe_labs[grep("alt", names(probe_labs))]] <-
+    paste0(volc_DMR$gene[
+    volc_DMR$probe_id %in% probe_labs[grep("alt", names(probe_labs))]], 
+    ".alt")
+
+  # plot volcano:
+  p <- ggplot(volc_DMR, aes(x=mean_diff_MPNST_vs_pNF, y=-log10(pval), 
+  color=sig ))
+  p <- p + geom_point()
+  p <- p + scale_color_manual(values = c("red", "#F4D30B", "#AB82D7", "grey"), 
+    labels = c("shortlisted_candidates", "selected candidates", "significant", "non-significant") )
+  p <- p + geom_text_repel(volc_DMR[volc_DMR$label,], mapping = aes(label=gene,),
+    colour = 'black' )
+  p <- p + ylab("-log10(p.val)")
+  p <- p + xlab("meta beta diff. MPNST vs pNF")
+  p <- p + theme_cowplot(12)
+  volcano_plot <- p + theme(legend.title = element_blank())
+  
+  png(file.path(plot_dir, "candidate_volcano_plot.png"))
+    volcano_plot
+  dev.off()
+  pdf(file.path(plot_dir, "candidate_volcano_plot.pdf"))
+    volcano_plot
+  dev.off()
+  
+```
+
+Volcano plot with selected candidates labelled:
+
+&nbsp;
+
+```{r, echo = FALSE, warning = FALSE, fig.height = 3.5, fig.width = 6}
+  volcano_plot
+```
+
+&nbsp;
+
+```{r, scatter, echo = FALSE, warning = FALSE, message = FALSE, results = 'hide'}
+
+  library(ggplot2)
+  library(cowplot)
+
+  # define probes of interest:
+  poi <- list(poi1=c(TSGA14="cg05751159", IRF6="cg22442454"),
+    poi2=c(TXNRD1="cg14142965", SLC1A2="cg21163960") )
+  
+  # define colours:
+  scatter_cols <- c(TCGA.MPNST = "black", koelsche.reference.MPNST = "blue", 
+            koelsche.validation.MPNST = "#1B9E77", lyskjaer.MPNST = "#E7298A", 
+            koelsche.reference.pNF = "#A6761D")
+  
+  # fetch metadata:
+  koelsche_meta <- read.table(
+    file.path(ref_dir, "formatted_koelsche_MPNST_metadata.tsv"), 
+    sep = "\t", header = T )
+
+  lysk_meta <- read.table(
+    file.path(ref_dir, "formatted_lyskjaer_MPNST_metadata.tsv"), 
+    sep = "\t", header = T )
+
+  TCGA_meta <- read.table(
+    file.path(ref_dir, "formatted_TCGA_MPNST_metadata.tsv"), 
+    sep = "\t", header = T )
+
+  # subset and format metadata:
+  koelsche_meta$H3K27me3 <- NA
+  koelsche_meta$H3K27me3[koelsche_meta$Methylation.class == "MPNST"] <- "H3K27me3.loss"
+  koelsche_meta$H3K27me3[koelsche_meta$Methylation.class == "SARC"] <- "H3K27me3.retained"
+  koelsche_metasub <- subset(koelsche_meta, select = c(ID, H3K27me3, Cellularity, 
+    Diagnosis, Preservation.method ))
+
+  lysk_metasub <- subset(lysk_meta, select = c(ID, Sex, Grade, H3K27me3, SUZ12, 
+    EED, NF1.assoc, Nerve.origin, Diagnosis, Orig.histo.group, Revised.histo.group ))
+  lysk_metasub$Preservation.method <- "KRYO"
+  
+  TCGA_metasub <- subset(TCGA_meta, select=c(ID, Sex, SUZ12))
+  TCGA_metasub$Preservation.method <- "KRYO"
+
+  # merge all metadata:
+  plot_meta <- merge(merge(koelsche_metasub, lysk_metasub, all=T), TCGA_metasub, 
+    all=T)
+  plot_meta[is.na(plot_meta)] <- "not_specified"
+  plot_meta$Source <- gsub("koelsche_", "koelsche.reference_", plot_meta$ID)
+  plot_meta$Source <- gsub("reference_v", "validation_", plot_meta$Source)
+  plot_meta$Source <- gsub("_.*$", "", plot_meta$Source)
+  plot_meta$Condition <- gsub("^.*_", "", plot_meta$ID)
+  saveRDS(plot_meta, file.path(Robject_dir, "plot_meta.rds"))
+
+  scatter_meta <- plot_meta
+  scatter_meta$Type <- paste0(scatter_meta$Source, ".", scatter_meta$Condition)
+
+  # load MPNST beta values:
+  orig_MPNST_beta <- readRDS(file.path(beta_in, "MPNST_beta.rds"))
+  MPNST_comb <- do.call("cbind", orig_MPNST_beta)
+  colnames(MPNST_comb) <- gsub("^.*\\.", "", colnames(MPNST_comb))
+  
+  # load pNF beta values and subset for common probes:
+  orig_pNF_beta <- readRDS(file.path(beta_in, "pNF_beta.rds"))
+  
+  # create scatterplots comparing pairs of candidates:
+  scatterplots <- lapply(poi, function(z) {
+    
+    # subset and bind samples together:
+    sub_beta <- rbind(as.data.frame(t(MPNST_comb[rownames(MPNST_comb) %in% z, ])), 
+      as.data.frame(t(orig_pNF_beta[rownames(orig_pNF_beta) %in% z, ])))
+    colnames(sub_beta) <- names(z)
+    
+    # add H3K27me3 status:
+    sub_beta$ID <- rownames(sub_beta)
+    sub_beta <- merge(sub_beta, 
+      subset(scatter_meta, select = c(ID, Type, H3K27me3)), all.x=T )
+    
+    p <- ggplot(sub_beta, aes_string(x=names(z)[1], y=names(z)[2], 
+      color="Type", shape="H3K27me3"))
+    p <- p + geom_point()
+    p <- p + scale_color_manual(values=ann_colors1$Type)
+    p <- p + scale_shape_manual(values=c(16, 17, 4))
+    p <- p + xlab(paste0(names(z)[1], " (", z[1], ")"))
+    p <- p + ylab(paste0(names(z)[2], " (", z[2], ")"))
+    p <- p + theme_cowplot(12)
+    p <- p + background_grid()
+    return(p)
+    
+  })
+
+  # write scatterplots:
+  for (i in seq_along(scatterplots)) {
+    png(paste0(
+      plot_dir, "/", paste(names(poi[[i]]), collapse="_vs_"), "_scatterplot.png" ),
+      height=7, width=10, res=300, units="in")
+      print(scatterplots[[i]])
+    dev.off()
+    pdf(paste0(
+      plot_dir, "/", paste(names(poi[[i]]), collapse="_vs_"), "_scatterplot.pdf" ),
+      height=7, width=10, )
+      print(scatterplots[[i]])
+    dev.off()
+  }
+  
+```
+
+&nbsp;
+
+Pairwise scatter plots of shortlisted candidates:
+
+&nbsp;
+
+```{r, echo = FALSE, warning = FALSE, fig.height = 3.5, fig.width = 7}
+  scatterplots[[1]]
+```
+
+&nbsp;
+
+&nbsp;
+
+```{r, echo = FALSE, warning = FALSE, fig.height = 3.5, fig.width = 7}
+  scatterplots[[2]]
+```
+
+&nbsp;
+
+```{r, groupscatter, echo = FALSE, warning = FALSE, message = FALSE, results = 'hide'}
+
+  library(reshape2)
+  library(ggplot2)
+  library(cowplot)
+
+  if (!exists("plot_meta")) {
+    plot_meta <- readRDS(file.path(Robject_dir, "plot_meta.rds"))
+  }
+
+  # load MPNST beta values:
+  orig_MPNST_beta <- readRDS(file.path(beta_in, "MPNST_beta.rds"))
+  MPNST_comb <- do.call("cbind", orig_MPNST_beta)
+  colnames(MPNST_comb) <- gsub("^.*\\.", "", colnames(MPNST_comb))
+  
+  # load pNF beta values and subset for common probes:
+  orig_pNF_beta <- readRDS(file.path(beta_in, "pNF_beta.rds"))
+
+  # define probes of interest for group scatterplot:
+  goi <- c(IRF6="cg22442454", SLC1A2="cg21163960", TXNRD1="cg14142965", 
+           TSGA14="cg05751159" )
+  
+  # subset and bind samples together:
+  sub_beta <- rbind(as.data.frame(t(MPNST_comb[rownames(MPNST_comb) %in% goi, ])), 
+                    as.data.frame(t(orig_pNF_beta[rownames(orig_pNF_beta) %in% goi, ])))
+  colnames(sub_beta) <- names(goi)
+  
+  # add H3K27me3 status:
+  temp_meta <- plot_meta
+  temp_meta$Title <- paste0(temp_meta$Source, ".", temp_meta$Condition)
+  sub_beta$ID <- rownames(sub_beta)
+  sub_beta <- merge(sub_beta, 
+    subset(temp_meta, select=c(ID, H3K27me3, Title)), all.x=T )
+  
+  # melt and format:
+  plot_df <- melt(sub_beta, id = c("ID", "H3K27me3", "Title"), 
+    variable.name="gene", value.name="beta_value")
+  plot_df$Title <- paste0(plot_df$Title, ".", plot_df$H3K27me3)
+  plot_df$Title <- gsub("not_specified", "H3K27me3.not.specified", 
+    plot_df$Title)
+  
+  group_scatter <- ggplot(plot_df, 
+    aes(x=gene, y=beta_value, color=Title, shape=H3K27me3, group=ID)) + 
+    geom_point() + geom_line() + scale_shape_manual(values=c(16, 17, 4)) +
+    scale_color_manual(values=brewer.pal(length(unique(plot_df$Title)), "Set2"), 
+      guide = 'none') + 
+    facet_wrap("Title") + theme_cowplot(12) + background_grid() + 
+    theme(axis.text.x=element_text(angle=50, hjust=1), 
+      strip.text=element_text(size=9) ) + ylab("beta value")
+
+  png(paste0(plot_dir, "/", "candidate_group_scatterplots.png"),
+    height=10, width=17, res=300, units="in" )
+    print(group_scatter)
+  dev.off()
+  pdf(paste0(
+    plot_dir, "/candidate_group_scatterplots.pdf"),
+    height=10, width=17)
+    print(group_scatter)
+  dev.off()
+  
+```
+
+\newpage
+
+Group line/scatter plot of shortlisted candidates:
+
+&nbsp;
+
+```{r, echo = FALSE, warning = FALSE, fig.height = 10, fig.width = 12}
+  group_scatter
+```
+
+\newpage
+
+```{r, top_boxplots, echo = FALSE, warning = FALSE, message = FALSE, results = 'hide'}
+
+  # add tissue on to colnames of nonmalig datasets:
+  for (i in seq_along(all_beta2$nonmalig_beta)) {
+    colnames(all_beta2$nonmalig_beta[[i]]) <- gsub(
+      "nonmalig", names(all_beta2$nonmalig_beta)[i], colnames(all_beta2$nonmalig_beta[[i]]))
+    colnames(all_beta2$nonmalig_beta[[i]]) <- gsub(
+      "^.*\\.", "", colnames(all_beta2$nonmalig_beta[[i]]))
+  }
+
+  # split DMR by hyper/hypo candidates:
+  DMR_split <- split(DMR, DMR$status)
+
+  # fetch top n DM probes:
+  top_DMR <- lapply(DMR_split, function(x) head(x$probe_id, plot_candidate_no))
+
+  # subset and bind together beta values for DM probes:
+  hyper_beta <- lapply(all_beta1, function(x) {
+    beta <- x[rownames(x) %in% top_DMR$hypermethylated,]
+    beta <- beta[match(top_DMR$hypermethylated, rownames(beta)),]
+    return(beta)
+  })
+  hyper_beta <- hyper_beta[names(hyper_beta) != "MPNST"]
+  top_dmr_beta <- list(hyper = do.call("cbind", hyper_beta))
+  colnames(top_dmr_beta$hyper) <- gsub("^.*\\.", "", names(top_dmr_beta$hyper))
+
+  hypo_beta = lapply(all_beta1, function(x) {
+    beta <- x[rownames(x) %in% top_DMR$hypomethylated,]
+    beta <- beta[match(top_DMR$hypomethylated, rownames(beta)),]
+    return(beta)
+  })
+  hypo_beta <- hypo_beta[names(hypo_beta) != "MPNST"]
+  top_dmr_beta$hypo <- do.call("cbind", hypo_beta)
+  colnames(top_dmr_beta$hypo) <- gsub("^.*\\.", "", names(top_dmr_beta$hypo))
+
+  # format colnames:
+  top_dmr_beta <- lapply(top_dmr_beta, function(x) {
+    colnames(x) <- gsub("^.*\\.", "", colnames(x))
+    return(x)
+  })
+ 
+  top_boxplots <- lapply(top_dmr_beta, do_boxplot, fsize=18, dmr_table=DMR_table)
+
+  saveRDS(top_boxplots, file.path(plot_dir, "top_boxplots.rds"))
+
+  # save boxplots:
+  png(file.path(plot_dir, "top_hypermethylated_boxplot.png"),
+    height=7, width=10, res=300, units="in" )
+    top_boxplots$hyper
+  dev.off()
+  pdf(file.path(plot_dir, "top_hypermethylated_boxplot.pdf"),
+    height=7, width=10 )
+    top_boxplots$hyper
+  dev.off()
+
+  png(file.path(plot_dir, "top_hypomethylated_boxplot.png"),
+    height=7, width=10, res=300, units="in" )
+    top_boxplots$hypo
+  dev.off()
+  pdf(file.path(plot_dir, "top_hypomethylated_boxplot.pdf"),
+    height=7, width=10 )
+    top_boxplots$hypo
+  dev.off()
+
+```
+
+Top `r plot_candidate_no` hypermethylated candidates, sorted by beta value difference, 
+then FDR:\
+
+```{r, hyper_boxplot, echo = FALSE, warning = FALSE, message = FALSE, results = 'hide', fig.height = 7, fig.width = 15}
+  top_boxplots$hyper
+```
+
+&nbsp;
+
+&nbsp;
+
+&nbsp;
+
+&nbsp;
+
+Top `r plot_candidate_no` hypomethylated candidates, sorted by beta value difference, 
+then FDR:\
+```{r, std_error_hypo, echo = FALSE, warning = FALSE, message = FALSE, results = 'hide', fig.height = 7, fig.width = 15}
+  top_boxplots$hypo
+```
+
+\newpage
+
+
+```{r, correlation_heatmap, echo = FALSE, warning = FALSE, message = FALSE, results = 'hide', fig.show='hide'}
+
+  # prepare pairwise correlation df with each probe a column:
+  dmr_MPNST <- list(
+    hyper = as.data.frame(t(all_beta1$MPNST[
+      rownames(all_beta1$MPNST) %in% DMR$probe_id[DMR$status == "hypermethylated"], ])),
+    hypo = as.data.frame(t(all_beta1$MPNST[
+      rownames(all_beta1$MPNST) %in% DMR$probe_id[DMR$status == "hypomethylated"], ]))
+  )
+  # format colnames:
+  dmr_MPNST <- lapply(dmr_MPNST, function(x) {
+    rownames(x) <- gsub("^.*\\.", "", rownames(x))
+    return(x)
+  })
+  saveRDS(dmr_MPNST, file.path(Robject_dir, "dmr_MPNST.rds"))
+
+  # reduce number of probes for plotting to hm_candidate_no:
+  hm_MPNST <- dmr_MPNST
+  hm_MPNST$hyper <- hm_MPNST$hyper[
+    , colnames(hm_MPNST$hyper) %in% 
+      DMR_table$probe_id[DMR_table$status == "hypermethylated"][1:max_heatmap] ]
+  hm_MPNST$hypo <- hm_MPNST$hypo[
+    , colnames(hm_MPNST$hypo) %in% 
+      DMR_table$probe_id[DMR_table$status == "hypomethylated"][1:max_heatmap] ]
+
+  for (i in seq_along(hm_MPNST)) {
+
+    # remove samples with NA:
+    dim(hm_MPNST[[i]])
+    filt_dmr <- hm_MPNST[[i]][
+      apply(hm_MPNST[[i]], 1, function(x) !any(is.na(x))),]
+    dim(filt_dmr)
+
+    # set label size:
+    if (ncol(filt_dmr) <= 50) {
+      fsize <- 18
+    } else {
+      fsize <- 14
+    }
+
+    # calculate pairwise correlations and plot:
+    pairwise <- cor.table(filt_dmr)
+  
+    cor_hm <- pheatmap(
+      pairwise$r, 
+      fontsize = fsize, 
+      legend_breaks = c(seq(0, 0.9, 0.2), 0.94, 1),
+      legend_labels = c(seq(0, 0.9, 0.2), 1, "   Pearson coeff."),
+      clustering_method = "ward.D" )
+    if(!is.null(dev.list())) dev.off()
+    
+    pval <- pairwise$P
+    pval[pval == 0] <- min(pval[pval != 0])
+    
+    p_hm <- pheatmap(
+      -log(pval), 
+      fontsize = fsize, 
+      legend_breaks = c(seq(0, 60, 20), 75, 80),
+      legend_labels = c(seq(0, 60, 20), 80, "-log(pval)") )
+    if(!is.null(dev.list())) dev.off()
+
+    pdf(paste0(plot_dir, "/", names(hm_MPNST)[i], "_dmr_correlation_hm.pdf"),
+      height = 13, width = 13)
+      cor_hm
+    dev.off()
+    png(paste0(plot_dir, "/", names(hm_MPNST)[i], "_dmr_correlation_hm.png"),
+      height = 13, width = 13, res = 300, units = "in")
+      cor_hm
+    dev.off()
+
+    pdf(paste0(plot_dir, "/", names(hm_MPNST)[i], "_dmr_corr_pval_hm.pdf"),
+      height = 13, width = 13)
+      p_hm
+    dev.off()
+    png(paste0(plot_dir, "/", names(hm_MPNST)[i], "_dmr_corr_pval_hm.png"),
+      height = 13, width = 13, res = 300, units = "in")
+      p_hm
+    dev.off()
+
+    if (i==1) {
+      pairwise_hm <- list(cor = cor_hm, pval = p_hm)
+      names(pairwise_hm) <- paste0(names(hm_MPNST)[i], "_", names(pairwise_hm))
+    } else {
+      pairwise_hm <- c(pairwise_hm, list(cor = cor_hm, pval = p_hm))
+      names(pairwise_hm)[3:4] <- paste0(names(hm_MPNST)[i], "_", names(pairwise_hm)[3:4])
+    }
+
+  }
+
+
+```
+
+Heatmap of MPNST beta value correlations between hypermethylated probes (top 80):\
+
+&nbsp;
+
+```{r, corr_hm_hyper, echo = FALSE, warning = FALSE, message = FALSE, results = 'hide', fig.height = 18, fig.width = 20}
+  pairwise_hm$hyper_cor
+```
+
+\newpage
+
+Heatmap of MPNST beta value correlations between hypomethylated probes (top 80):\
+
+&nbsp;
+
+```{r, corr_hm_hypo, echo = FALSE, warning = FALSE, message = FALSE, results = 'hide', fig.height = 18, fig.width = 20}
+  pairwise_hm$hypo_cor
+```
+
+\newpage
+
+```{r, save_beta, echo = FALSE, warning = FALSE, message = FALSE, results = 'hide', fig.show='hide'}
+
+  if (!exists("dmr_MPNST")) {
+    dmr_MPNST <- dmr_MPNST <- readRDS(file.path(Robject_dir, "dmr_MPNST.rds"))
+  }
+
+  # order dmr_MPNST as in DMR_table and write:
+  dmr_MPNST_combined <- cbind(dmr_MPNST$hyper, dmr_MPNST$hypo)
+  dmr_MPNST_combined <- dmr_MPNST_combined[
+    ,match(DMR_table$probe_id, colnames(dmr_MPNST_combined))]
+
+  write.table(t(dmr_MPNST_combined), file.path(table_dir, "DMR_MPNST_beta.tsv"),
+    sep = "\t", row.names = T, col.names = T, quote = T )
+  saveRDS(dmr_MPNST_combined, file.path(table_dir, "DMR_MPNST_beta.rds"))
+
+  # split by source and write:
+  dmr_koelsche <- dmr_MPNST_combined[grep("koelsche", rownames(dmr_MPNST_combined)),]
+  write.table(t(dmr_koelsche), file.path(table_dir, "DMR_koelsche_MPNST_beta.tsv"),
+    sep = "\t", row.names = T, col.names = T, quote = T )
+  dmr_lyskjaer <- dmr_MPNST_combined[grep("lyskjaer", rownames(dmr_MPNST_combined)),]
+  write.table(t(dmr_lyskjaer), file.path(table_dir, "DMR_lyskjaer_MPNST_beta.tsv"),
+    sep = "\t", row.names = T, col.names = T, quote = T )
+  dmr_TCGA <- dmr_MPNST_combined[grep("TCGA", rownames(dmr_MPNST_combined)),]
+  write.table(t(dmr_TCGA), file.path(table_dir, "DMR_TCGA_MPNST_beta.tsv"),
+    sep = "\t", row.names = T, col.names = T, quote = T )
+
+  # add pNF samples:
+  dmr_pNF <- list(
+    hyper = as.data.frame(t(all_beta1$pNF[
+      rownames(all_beta1$pNF) %in% DMR$probe_id[DMR$status == "hypermethylated"], ])),
+    hypo = as.data.frame(t(all_beta1$pNF[
+      rownames(all_beta1$pNF) %in% DMR$probe_id[DMR$status == "hypomethylated"], ])) )
+
+  # order dmr_pNF as in DMR_table and write:
+  dmr_pNF_combined <- cbind(dmr_pNF$hyper, dmr_pNF$hypo)
+  dmr_pNF_combined <- dmr_pNF_combined[
+    ,match(DMR_table$probe_id, colnames(dmr_pNF_combined))]
+
+  write.table(t(dmr_pNF_combined), file.path(table_dir, "DMR_pNF_beta.tsv"),
+    sep = "\t", row.names = T, col.names = T, quote = T )
+  saveRDS(dmr_pNF_combined, file.path(table_dir, "DMR_pNF_beta.rds"))
+
+```
+
+```{r, heterogeneity, echo = FALSE, warning = FALSE, message = FALSE, results = 'hide', fig.show='hide'}
+
+  library(ggpubr)
+  
+  # load metadata and subset:
+  # load lyskjaer metadata and subset:
+  lysk_meta <- read.table(
+    file.path(ref_dir, "formatted_lyskjaer_MPNST_metadata.tsv"), 
+    sep = "\t", header = T )
+  lysk_var_meta <- subset(lysk_meta, select = -c(Site, Basename, Array, Slide, Background.NF) )
+  
+  # shorten values for plot axes:
+  lysk_var_meta$Diagnosis <- gsub("RT_assoc_MPNST", "RT_MPNST", lysk_var_meta$Diagnosis)
+  lysk_var_meta$Diagnosis <- gsub("sarcoma_NOS", "sarc_NOS", lysk_var_meta$Diagnosis)
+  lysk_var_meta$Grade <- gsub("grade.", "", lysk_var_meta$Grade)
+  lysk_var_meta$H3K27me3 <- gsub("H3K27me3.", "", lysk_var_meta$H3K27me3)
+  lysk_var_meta$Orig.histo.group <- gsub("benign_or_grade1_MPNST", "low_grade", 
+    lysk_var_meta$Orig.histo.group)
+  lysk_var_meta$Orig.histo.group <- gsub("classical_MPNST", "classic", 
+    lysk_var_meta$Orig.histo.group)
+  lysk_var_meta$Orig.histo.group <- gsub("classicalhetero_MPNST", "classic_het.", 
+    lysk_var_meta$Orig.histo.group)
+  lysk_var_meta$Orig.histo.group <- gsub("nonclassical_MPNST", "nonclassic", 
+    lysk_var_meta$Orig.histo.group)
+  lysk_var_meta$Orig.histo.group <- gsub("sarcoma_NOS", "sarc_NOS", 
+    lysk_var_meta$Orig.histo.group)
+  colnames(lysk_var_meta) <- gsub("Orig.histo.group", "Orig.MPNST.group", 
+    colnames(lysk_var_meta) )
+  
+  # load koelsche metadata and subset:
+  koelsche_meta <- read.table(
+    file.path(ref_dir, "formatted_koelsche_MPNST_metadata.tsv"), 
+    sep = "\t", header = T )
+  koelsche_var_meta <- subset(koelsche_meta, 
+    select = -c(Classification.score, Classification.outcome, Validation) )
+  
+  # load koelsche metadata:
+  TCGA_meta <- read.table(
+    file.path(ref_dir, "formatted_TCGA_MPNST_metadata.tsv"), 
+    sep = "\t", header = T )
+  TCGA_var_meta <- subset(TCGA_meta, select = -c(Age.group))
+  
+  # only consider hypermethylated probes:
+  hyper_probes <- DMR$probe_id[DMR$status == "hypermethylated"]
+  
+  # subset hypermethylated beta values:
+  hyper_beta <- lapply(MPNST_beta, function(x) x[rownames(x) %in% hyper_probes,])
+  
+  # calculate mean score of beta values per sample:
+  hyper_means <- lapply(hyper_beta, function(x) {
+    means <- apply(x, 2, mean)
+    return(data.frame(ID=names(means), Mean.beta=means))
+  })
+  bp_cols = c("#00AFBB", "#E7B800", "#FC4E07", "#B066B2", "#D95F02", "#1B9E77","black")
+  
+  # do fisher tests and generate boxplot pngs for Koelsche data:
+  koelsche_var_bps1 <- test_meta_association(meta_df=koelsche_var_meta, 
+    hyper_mean=hyper_means$koelsche, bp_cols )
+  koelsche_var_bps2 <- test_meta_association(meta_df=koelsche_var_meta, 
+    hyper_mean=hyper_means$koelsche, bp_cols, fsize=30 )
+
+  spl_bp <- split(koelsche_var_bps1$bps, ceiling(seq_along(koelsche_var_bps1$bps)/6))
+  for (i in seq_along(spl_bp)) {
+    png(paste0(plot_dir, "/koelsche_metadata_tests_", i, ".png"), height=16, width=12,
+    units="in", res=300)
+        print(ggarrange(plotlist=spl_bp[[i]], ncol=2, 
+          nrow=3 ) + theme(plot.margin=margin(1,1,1,1, "cm") ))
+    dev.off()
+    pdf(paste0(plot_dir, "/koelsche_metadata_tests_", i, ".pdf"), height=16, width=12)
+        print(ggarrange(plotlist=spl_bp[[i]], ncol=2, 
+          nrow=3 ) + theme(plot.margin=margin(1,1,1,1, "cm") ))
+    dev.off()
+  }
+  
+  lysk_var_bps1 <- test_meta_association(meta_df=lysk_var_meta, 
+    hyper_mean=hyper_means$lyskjaer, bp_cols )
+  lysk_var_bps2 <- test_meta_association(meta_df=lysk_var_meta, 
+    hyper_mean=hyper_means$lyskjaer, bp_cols, fsize=30 )
+  
+  spl_bp <- split(lysk_var_bps2$bps, ceiling(seq_along(lysk_var_bps2$bps)/6))
+  for (i in seq_along(spl_bp)) {
+    png(paste0(plot_dir, "/lyskjaer_metadata_tests_", i, ".png"), height=16, width=12,
+    units="in", res=300)
+        print(ggarrange(plotlist=spl_bp[[i]], ncol=2, 
+          nrow=3 ) + theme(plot.margin=margin(1,1,1,1, "cm") ))
+    dev.off()
+    pdf(paste0(plot_dir, "/lyskjaer_metadata_tests_", i, ".pdf"), height=16, width=12)
+        print(ggarrange(plotlist=spl_bp[[i]], ncol=2, 
+          nrow=3 ) + theme(plot.margin=margin(1,1,1,1, "cm") ))
+    dev.off()
+  }
+  
+  TCGA_var_bps1 <- test_meta_association(meta_df=TCGA_var_meta, 
+    hyper_mean=hyper_means$TCGA, bp_cols )
+  TCGA_var_bps2 <- test_meta_association(meta_df=TCGA_var_meta, 
+    hyper_mean=hyper_means$TCGA, bp_cols, fsize=30 )
+  
+  spl_bp <- split(TCGA_var_bps1$bps, ceiling(seq_along(TCGA_var_bps1$bps)/6))
+  for (i in seq_along(spl_bp)) {
+    png(paste0(plot_dir, "/TCGA_metadata_tests_", i, ".png"), height=16, width=12,
+    units="in", res=300)
+        print(ggarrange(plotlist=spl_bp[[i]], ncol=2, 
+          nrow=3 ) + theme(plot.margin=margin(1,1,1,1, "cm") ))
+    dev.off()
+    pdf(paste0(plot_dir, "/TCGA_metadata_tests_", i, ".pdf"), height=16, width=12)
+        print(ggarrange(plotlist=spl_bp[[i]], ncol=2, 
+          nrow=3 ) + theme(plot.margin=margin(1,1,1,1, "cm") ))
+    dev.off()
+  }
+  
+  # subset koelsche and plot variables which were significantly correlated with
+  # hyper probe beta values:  
+  sig_koelsche <- koelsche_var_bps2$bps[koelsche_var_bps2$sig_vars]
+  spl_koelsche <- split(sig_koelsche, ceiling(seq_along(sig_koelsche)/2))
+  for (i in seq_along(spl_koelsche)) {
+    if (i==1) {
+      koelsche_varplots <- list(ggarrange(plotlist=spl_koelsche[[i]], ncol=2, nrow=3 ) + 
+        theme(plot.margin=margin(1,1,1,1, "cm") ))
+    } else {
+      koelsche_varplots[[i]] <- ggarrange(plotlist=spl_koelsche[[i]], ncol=2, nrow=3 ) + 
+        theme(plot.margin=margin(1,1,1,1, "cm") )
+    }
+  }
+  
+  # subset lyskjaer and plot variables which were significantly correlated with
+  # hyper probe beta values:
+  sig_lysk <- lysk_var_bps2$bps[lysk_var_bps2$sig_vars]
+  spl_lysk <- split(sig_lysk, ceiling(seq_along(sig_lysk)/2))
+  for (i in seq_along(spl_lysk)) {
+    if (i==1) {
+      lysk_varplots <- list(ggarrange(plotlist=spl_lysk[[i]], ncol=2, nrow=1 ) + 
+        theme(plot.margin=margin(1,1,1,1, "cm") ))
+    } else {
+      lysk_varplots[[i]] <- ggarrange(plotlist=spl_lysk[[i]], ncol=2, nrow=1 ) + 
+        theme(plot.margin=margin(1,1,1,1, "cm") )
+    }
+  }
+
+```
+
+Koelsche variables correlated with hypermethylated probe beta values:\
+
+```{r, koelsche_var, echo = FALSE, results = 'asis', fig.height = 30, fig.width = 25}
+  for (i in seq_along(koelsche_varplots)) {
+    print(koelsche_varplots[[i]])
+    cat("  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n")
+  }
+```
+
+&nbsp;
+
+Lyskjaer variables correlated with hypermethylated probe beta values:\
+
+```{r, lysk_var, echo = FALSE, results = 'asis', fig.height = 10, fig.width = 25}
+  for (i in seq_along(lysk_varplots)) {
+    print(lysk_varplots[[i]])
+    cat("  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n")
+    cat("_")
+    cat("  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n  \n")
+  }
+```
+
+&nbsp;
+
+```{r, beta_heatmap, echo = FALSE, warning = FALSE, message = FALSE, results = 'hide', fig.show='hide'}
+
+  if (!exists("plot_meta")) {
+    plot_meta <- readRDS(file.path(Robject_dir, "plot_meta.rds")) }
+
+  # fetch beta values and bind together:
+  if (!exists("dmr_pNF")) { 
+    dmr_pNF <- list(
+      hyper = as.data.frame(t(all_beta1$pNF[
+        rownames(all_beta1$pNF) %in% DMR$probe_id[DMR$status == "hypermethylated"], ])),
+      hypo = as.data.frame(t(all_beta1$pNF[
+        rownames(all_beta1$pNF) %in% DMR$probe_id[DMR$status == "hypomethylated"], ])) )
+  }
+  if (!exists("dmr_MPNST_combined")) {
+    dmr_MPNST_combined <- readRDS(file.path(table_dir, "DMR_MPNST_beta.rds"))
+    dmr_pNF_combined <- readRDS(file.path(table_dir, "DMR_pNF_beta.rds"))
+  }
+  
+  dmr_MPNST_pNF <- rbind(dmr_MPNST_combined, dmr_pNF_combined)
+  rownames(dmr_MPNST_pNF) <- gsub("^.*\\.", "", rownames(dmr_MPNST_pNF))
+  dmr_MPNST_pNF$ID <- rownames(dmr_MPNST_pNF)
+
+  # add annot columns:
+  dmr_MPNST_pNF <- merge(dmr_MPNST_pNF, plot_meta, all=T)
+  rownames(dmr_MPNST_pNF) <- dmr_MPNST_pNF$ID
+
+  # generate annotation dfs:
+  row_annot1 <- data.frame(row.names = dmr_MPNST_pNF$ID, 
+    Condition = dmr_MPNST_pNF$Condition,
+    Source = dmr_MPNST_pNF$Source,
+    Cellularity = dmr_MPNST_pNF$Cellularity,
+    Grade = dmr_MPNST_pNF$Grade,
+    H3K27me3 = dmr_MPNST_pNF$H3K27me3,
+    SUZ12 = dmr_MPNST_pNF$SUZ12,
+    EED = dmr_MPNST_pNF$EED,
+    Sex = dmr_MPNST_pNF$Sex,
+    Nerve.origin = dmr_MPNST_pNF$Nerve.origin,
+    NF1.assoc = dmr_MPNST_pNF$NF1.assoc )
+
+  row_annot2 <- data.frame(row.names = dmr_MPNST_pNF$ID, 
+    Condition = dmr_MPNST_pNF$Condition,
+    Source = gsub("_.*$", "", dmr_MPNST_pNF$Source),
+    Diagnosis = dmr_MPNST_pNF$Diagnosis,
+    Orig.histo.group = dmr_MPNST_pNF$Orig.histo.group,
+    Revised.histo.group = dmr_MPNST_pNF$Revised.histo.group )
+
+  dmr_MPNST_pNF <- subset(dmr_MPNST_pNF, select = -c(ID, Sex, SUZ12, EED, 
+    H3K27me3, Cellularity, Grade, Nerve.origin, NF1.assoc, Source, Condition, Diagnosis, 
+    Orig.histo.group, Revised.histo.group, Preservation.method ))
+  col_annot <- data.frame(row.names = colnames(dmr_MPNST_pNF), 
+    Status = c(rep("hypermethylated", ncol(dmr_pNF$hyper)), 
+      rep("hypomethylated", ncol(dmr_pNF$hypo)) ))
+
+  # merge annotation data with heatmap df in order for writing:
+  meta_and_beta <- cbind(row_annot1, row_annot2)
+  meta_and_beta <- cbind(meta_and_beta, dmr_MPNST_pNF)
+  meta_and_beta <- meta_and_beta[,!duplicated(colnames(meta_and_beta))]
+  write.table(meta_and_beta, 
+    file.path(table_dir, "dm_candidate_metadata_and_beta.tsv"), sep="\t", row.names=T,
+    col.names=T )
+
+  # plot:
+  beta_hm1 <- pheatmap(
+    as.matrix(dmr_MPNST_pNF),
+    cluster_cols = F,
+    show_colnames = F,
+    annotation_row = row_annot1,
+    annotation_col = col_annot,
+    annotation_colors = ann_colors1,
+    cellwidth=2,
+    cellheight=10,
+    legend_breaks = c(seq(0, 0.9, 0.2), 0.95, 0.99),
+    legend_labels = c(seq(0, 0.9, 0.2), 1, "   Beta val.") )
+  if(!is.null(dev.list())) dev.off()
+
+  pdf(file.path(plot_dir, "dmr_beta_hm.pdf"),
+    height = 13, width = 18)
+    beta_hm1
+  dev.off()
+  png(file.path(plot_dir, "dmr_beta_hm.png"),
+    height = 13, width = 18, res = 300, units = "in")
+    beta_hm1
+  dev.off()
+
+  beta_hm2 <- pheatmap(
+    as.matrix(dmr_MPNST_pNF),
+    cluster_cols = F,
+    show_colnames = F,
+    annotation_row = row_annot2,
+    annotation_col = col_annot,
+    annotation_colors = ann_colors2,
+    cellwidth=2,
+    cellheight=10,
+    legend_breaks = c(seq(0, 0.9, 0.2), 0.95, 0.99),
+    legend_labels = c(seq(0, 0.9, 0.2), 1, "   Beta val.") )
+  if(!is.null(dev.list())) dev.off()
+
+  pdf(file.path(plot_dir, "dmr_beta_hm_diagnosis_annotated.pdf"),
+    height = 13, width = 18)
+    beta_hm2
+  dev.off()
+  png(file.path(plot_dir, "dmr_beta_hm_diagnosis_annotated.png"),
+    height = 13, width = 18, res = 300, units = "in")
+    beta_hm2
+  dev.off()
+
+```
+
+
+```{r, fishers, echo = FALSE, warning = FALSE, message = FALSE, results = 'hide', fig.show='hide'}
+
+  library(plyr)
+  
+  # fetch metadata:
+  if (!exists("plot_meta")) {
+    plot_meta <- readRDS(file.path(Robject_dir, "plot_meta.rds"))
+  }
+
+  # test fisher test with positive ctl:
+  ctl_meta <- plot_meta
+  tab <- table(subset(ctl_meta, select = c(Source, H3K27me3)))
+  tab <- tab[rownames(tab) != "not_specified", colnames(tab) != "not_specified"]
+  tab <- tab[apply(tab, 1, function(x) !(all(x==0))),]
+  chisq.test(tab)$expected
+  pos_ftest <- fisher.test(tab)
+  ftests <- data.frame(test = "Source_vs_H3K27me3_ps_ctl", 
+    p_val = pos_ftest$p.value)
+
+  # test ctl with negative control:
+  ctl_meta <- ctl_meta[grep("koelsche", ctl_meta$Source),]
+  ctl_meta <- subset(ctl_meta, select = c(Preservation.method, H3K27me3))
+  tab <- table(ctl_meta)
+  tab <- tab[rownames(tab) != "not_specified", colnames(tab) != "not_specified"]
+  chisq.test(tab)$expected
+  neg_ftest <- fisher.test(tab)
+  ftests <- rbind(ftests, 
+    data.frame(test = "Preservation.method_vs_H3K27me3_ng_ctl", 
+      p_val = neg_ftest$p.value) )
+
+  fisher_meta <- subset(plot_meta, select=c(Sex, Source, Grade, Cellularity, 
+    H3K27me3, SUZ12, EED, Diagnosis, Orig.histo.group )) 
+
+  for (i in 2:ncol(fisher_meta)) {
+    tab <- table(fisher_meta[,c(1, i)])
+    tab <- tab[rownames(tab) != "not_specified", colnames(tab) != "not_specified"]
+    tab <- tab[,apply(tab, 2, function(x) !(all(x==0)))]
+    if (!(all(tab==0))) {
+      chisq.test(tab)$expected
+      ftest <- fisher.test(tab)
+      ftests <- rbind(ftests, 
+        data.frame(test = paste0("Sex_vs_", colnames(fisher_meta)[i]), 
+        p_val = ftest$p.value ))
+    }
+  }
+
+  write.table(ftests, file.path(table_dir, "fisher_sex_vs_variables.tsv"), sep="\t", 
+    col.names=T, row.names=F, quote=F)
+
+
+```
+
+&nbsp;
+
+Trend for association between sex and tumour grade: 
+
+```{r, print_fishers, echo = FALSE, warning = FALSE}
+   kable(ftests)
+```
+
+\newpage
+
+Heatmap of beta values, differentially methylated probes vs MPNST/pNF samples with metadata annotated:\
+
+&nbsp;
+
+```{r, write_beta_hm1, echo = FALSE, warning = FALSE, message = FALSE, results = 'hide', fig.height = 25, fig.width = 25}
+  beta_hm1
+```
+
+\newpage
+
+Heatmap of beta values, differentially methylated probes vs MPNST/pNF samples with diagnoses annotated:\
+
+&nbsp;
+
+```{r, write_beta_hm2, echo = FALSE, warning = FALSE, message = FALSE, results = 'hide', fig.height = 25, fig.width = 25}
+  beta_hm2
+```
+
+\newpage
+
+```{r, cand_hm, echo = FALSE, warning = FALSE, message = FALSE, results = 'hide'}
+
+  library(ComplexHeatmap)
+  library(plyr)
+
+  # define probes of interest for group scatterplot:
+  goi <- c(IRF6="cg22442454", SLC1A2="cg21163960", TXNRD1="cg14142965", 
+           TSGA14="cg05751159" )
+
+  # fetch metadata:
+  if (!exists("plot_meta")) {
+    plot_meta <- readRDS(file.path(Robject_dir, "plot_meta.rds")) }
+
+  # load MPNST beta values:
+  if (!exists("orig_MPNST_beta")) {
+  orig_MPNST_beta <- readRDS(file.path(beta_in, "MPNST_beta.rds")) }
+  MPNST_comb <- do.call("cbind", orig_MPNST_beta)
+  colnames(MPNST_comb) <- gsub("^.*\\.", "", colnames(MPNST_comb))
+  
+  # load pNF beta values and subset for common probes:
+  if (!exists("orig_pNF_beta")) {
+    orig_pNF_beta <- readRDS(file.path(beta_in, "pNF_beta.rds")) }
+
+  # subset and bind samples together:
+  sub_beta <- rbind(as.data.frame(t(MPNST_comb[goi,])), 
+    as.data.frame(t(orig_pNF_beta[goi, ])))
+  colnames(sub_beta) <- revalue(colnames(sub_beta), c("cg22442454" = "IRF6", 
+    "cg21163960" = "SLC1A2", "cg14142965" = "TXNRD1", "cg05751159" = "TSGA14" ))
+  
+  # add metadata:
+  sub_beta$ID <- rownames(sub_beta)
+  sub_beta <- merge(sub_beta, plot_meta, by="ID", all.x=T)
+  
+  # convert numbers to binary outcome:
+  cand_df <- sub_beta[,!(colnames(sub_beta) %in% colnames(plot_meta))]
+  rownames(cand_df) <- sub_beta$ID
+  cand_df[cand_df > cand_beta_thresh] <- paste0("positive (>", cand_beta_thresh, 
+    ")" )
+  cand_df[cand_df < cand_beta_thresh] <- paste0("negative (<", cand_beta_thresh, 
+    ")" )
+  
+  # put most positive at top:
+  cand_order <- apply(cand_df, 1, function(x) {
+    sum(x==paste0("positive (>", cand_beta_thresh, ")" )) })
+  cand_order <- cand_order[order(cand_order, decreasing=T)]
+  cand_df <- cand_df[names(cand_order),]
+  
+  # plot:
+  hm_cols <- c("#58B9DB", "#BF3667")
+  names(hm_cols) <- c(paste0("negative (<", cand_beta_thresh, ")"), 
+    paste0("positive (>", cand_beta_thresh, ")") )
+  
+  cand_hm <- Heatmap(as.matrix(cand_df), name = "Candidate beta status", 
+    col = hm_cols, cluster_columns=F, row_names_gp=gpar(fontsize = 6) )
+  
+  # generate first annotation df:
+  annot_col1 <- ann_colors1[names(ann_colors1) != "Status"]
+  m <- match(names(annot_col1), colnames(sub_beta))
+  annot_df1 <- sub_beta[match(rownames(cand_df), sub_beta$ID), m[!is.na(m)]]
+
+  # reverse order of metadata:
+  annot_df1 <- annot_df1[,rev(seq_along(colnames(annot_df1)))]
+  annot_col1 <- annot_col1[colnames(annot_df1)]
+
+  # create first heatmap:
+  for (i in seq_along(colnames(annot_df1))) {
+    mtx <- as.matrix(annot_df1[,i])
+    colnames(mtx) <- colnames(annot_df1)[i]
+    if (i==1) {
+      ht_list1 <- Heatmap(mtx, col = annot_col1[[i]], 
+        name = colnames(annot_df1)[i], width = unit(4, "mm") )
+    } else {
+      ht_list1 <- ht_list1 + Heatmap(mtx, col = annot_col1[[i]], 
+        name = colnames(annot_df1)[i], width = unit(4, "mm") ) }}
+
+  ht_list1 <- ht_list1 + cand_hm
+    
+  pdf(file.path(plot_dir, "candidate_beta_status_hm.pdf"),
+      height = 13, width = 13)
+    draw(ht_list1)
+  dev.off()
+  png(file.path(plot_dir, "candidate_beta_status_hm.png"),
+      height = 13, width = 13, res = 300, units = "in")
+    draw(ht_list1)
+  dev.off()
+
+  # generate second annotation df:
+  annot_col2 <- ann_colors2[names(ann_colors2) != "Status"]
+  m <- match(names(annot_col2), colnames(sub_beta))
+  annot_df2 <- sub_beta[match(rownames(cand_df), sub_beta$ID), m[!is.na(m)]]
+
+  # reverse order of metadata:
+  annot_df2 <- annot_df2[,rev(seq_along(colnames(annot_df2)))]
+  annot_col2 <- annot_col2[colnames(annot_df2)]
+
+  # create second heatmap:
+  for (i in seq_along(colnames(annot_df2))) {
+    mtx <- as.matrix(annot_df2[,i])
+    colnames(mtx) <- colnames(annot_df2)[i]
+    if (i==1) {
+      ht_list2 <- Heatmap(mtx, col = annot_col2[[i]], 
+        name = colnames(annot_df2)[i], width = unit(4, "mm") )
+    } else {
+      ht_list2 <- ht_list2 + Heatmap(mtx, col = annot_col2[[i]], 
+        name = colnames(annot_df2)[i], width = unit(4, "mm") ) }}
+
+  ht_list2 <- ht_list2 + cand_hm
+    
+  pdf(file.path(plot_dir, "candidate_beta_status_hm_diagnosis_annotated.pdf"),
+      height = 13, width = 13)
+    draw(ht_list2)
+  dev.off()
+  png(file.path(plot_dir, "candidate_beta_status_hm_diagnosis_annotated.png"),
+      height = 13, width = 13, res = 300, units = "in")
+    draw(ht_list2)
+  dev.off()
+
+```
+
+Candidate beta value status:
+
+&nbsp;
+
+```{r, write_cand_hm1, echo = FALSE, warning = FALSE, fig.height = 10, fig.width = 10}
+  draw(ht_list1, heatmap_legend_side = "left")
+```
+
+\newpage
+
+```{r, write_cand_hm2, echo = FALSE, warning = FALSE, fig.height = 10, fig.width = 10}
+  draw(ht_list2, heatmap_legend_side = "left")
+```
+
+\newpage
+
+```{r, summary_boxplots, echo = FALSE, warning = FALSE, message = FALSE, results = 'hide'}
+
+  # keep only DMR probes from all_beta2:
+  filt_beta <- lapply(all_beta2, function(x) x[DMR_table$probe_id,])
+
+  # combine all beta dfs:
+  dm_combined <- do.call("cbind", filt_beta)
+
+  # order by DMR_table:
+  dm_combined <- dm_combined[
+    match(gsub("^.*\\.cg", "", DMR_table$probe_id), rownames(dm_combined)), ]
+
+  # subset by top 10 hypermethylated probes and top hypomethylated probes:
+  top_hyper <- head(DMR_table$probe_id[DMR_table$status == "hypermethylated"], 10)
+  top_hyper_beta <- dm_combined[rownames(dm_combined) %in% top_hyper,]
+
+  top_hypo <- head(DMR_table$probe_id[DMR_table$status == "hypomethylated"], 10)
+  top_hypo_beta <- dm_combined[rownames(dm_combined) %in% top_hypo,]
+
+  # calculate summary means:
+  mean_beta <- list(
+    hypermethylated = apply(top_hyper_beta, 2, mean),
+    hypomethylated = apply(top_hypo_beta, 2, mean),
+    combined = apply(rbind(top_hyper_beta, (1-top_hypo_beta)), 2, mean) )
+
+  # convert to df and format colnames:
+  for (i in seq_along(mean_beta)) {
+    cnames <- names(mean_beta[[i]])
+    mean_beta[[i]] <- as.data.frame(t(as.data.frame(mean_beta[[i]])))
+    colnames(mean_beta[[i]]) <- gsub("^.*\\.", "", cnames)
+    rownames(mean_beta[[i]]) <- paste0("Average beta of top 10 ", names(mean_beta)[i], 
+      " probes")
+  }
+  rownames(mean_beta$combined) <- "Average beta of combined top 10 hyper and hypomethylated probes\n(hypomethylated beta values scaled to (1-beta))"
+
+  # create 1 boxplot per probe:
+  mean_boxplots <- lapply(
+    mean_beta, 
+    do_boxplot, 
+    fsize = 24, 
+    combine_nonmalig = F,
+    rowname_to_title = T )
+
+  pdf(file.path(plot_dir, "mean_hyper_boxplot.pdf"),
+    height = 13, width = 18)
+    mean_boxplots$hyper
+  dev.off()
+  png(file.path(plot_dir, "mean_hyper_boxplot.png"),
+    height = 13, width = 18, res = 300, units = "in")
+    mean_boxplots$hyper
+  dev.off()
+
+  pdf(file.path(plot_dir, "mean_hypo_boxplot.pdf"),
+    height = 13, width = 18)
+    mean_boxplots$hypo
+  dev.off()
+  png(file.path(plot_dir, "mean_hypo_boxplot.png"),
+    height = 13, width = 18, res = 300, units = "in")
+    mean_boxplots$hypo
+  dev.off()
+
+  pdf(file.path(plot_dir, "mean_combined_boxplot.pdf"),
+    height = 13, width = 18)
+    mean_boxplots$combined
+  dev.off()
+  png(file.path(plot_dir, "mean_combined_boxplot.png"),
+    height = 13, width = 18, res = 300, units = "in")
+    mean_boxplots$combined
+  dev.off()
+
+```
+
+\newpage
+
+Summary boxplots:
+
+&nbsp;
+
+```{r, hyper_mean_boxplot, echo = FALSE, warning = FALSE, message = FALSE, results = 'hide', fig.height = 7, fig.width = 20}
+  mean_boxplots$hyper
+```
+
+&nbsp;
+
+&nbsp;
+
+```{r, hypo_mean_boxplot, echo = FALSE, warning = FALSE, message = FALSE, results = 'hide', fig.height = 7, fig.width = 20}
+  mean_boxplots$hypo
+```
+
+&nbsp;
+
+&nbsp;
+
+```{r, combined_mean_boxplot, echo = FALSE, warning = FALSE, message = FALSE, results = 'hide', fig.height = 7, fig.width = 20}
+  mean_boxplots$combined
+```
+
+
+```{r, indiv_boxplots, echo = FALSE, warning = FALSE, message = FALSE, results = 'hide'}
+
+  # create 1 boxplot per probe:
+  dm_split <- split(dm_combined, rownames(dm_combined))
+  dm_split <- dm_split[gsub("^.*\\.cg", "", DMR_table$probe_id)]
+
+  # format colnames:
+  dm_split <- lapply(dm_split, function(x) {
+    colnames(x) <- gsub("^.*\\.", "", colnames(x))
+    return(x)
+  })
+
+  if (sub) {
+    dm_split <- dm_split[1:5]
+  }
+
+  all_boxplots <- lapply(
+    dm_split, 
+    do_boxplot, 
+    fsize = 24, 
+    combine_nonmalig = F,
+    probe_title_info = T,
+    dmr_table = DMR_table )
+
+  save.image(file.path(Robject_dir, "final_img.Rdata"))
+
+```
+
+\newpage
+
+Per-probe boxplots:
+
+&nbsp;
+
+
+```{r, plot_indiv_boxplots, echo=FALSE, warning=FALSE, results='asis', fig.height = 7, fig.width = 20}
+for (i in seq(1, length(all_boxplots), 3)) {
+  cat(paste0(i, "  \n"))
+  print(all_boxplots[[i]])
+  if ((i+1) <= length(all_boxplots)) {
+    cat("\\newline\\newline\\newline\\newline")
+    cat(paste0(i+1, "  \n"))
+    print(all_boxplots[[i+1]])
+  }
+  if ((i+2) <= length(all_boxplots)) {
+    cat("\\newline\\newline\\newline\\newline")
+    cat(paste0(i+2, "  \n"))
+    print(all_boxplots[[i+2]])
+  }
+  cat("\n\n\\newpage\n")
+}
+
+```

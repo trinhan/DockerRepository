@@ -1,0 +1,14 @@
+{
+"TierAGnomad": 0.1,
+"TierAOnlyCoding": TRUE,
+"TierBGnomad": 0.1,
+"TierBCadd": 1,
+"TierBOnlyCoding": TRUE,
+"TierBPathogenic": FALSE,
+"TierDGnomad": 0.1,
+"TierDCadd": 1,
+"TierDOnlyCoding": TRUE,
+"TierDPathogenic": TRUE,
+"OverallCADD": 20,
+"OverallGnomad": 0.1,
+}

@@ -8,8 +8,6 @@ Genes which are Cancer-COSMIC related, or have relevance to the pathway of inter
 
 ```{r, eval=T, message=F}
 library(karyoploteR)
-dGenes=data$gCNVAnnotSV
-AnnotCNV=read.delim(dGenes)
 AnnotCNV$OMIM_morb=ifelse(AnnotCNV$OMIM_morbid=="yes", "morbid", ifelse(AnnotCNV$OMIM_morbid_candidate=="yes", "candidate", "no"))
 ```
 
@@ -121,7 +119,7 @@ temp1=temp1[order(temp1$SV_chrom,temp1$SV_start), ]
 tempx=by(temp1$CN, temp1$Gene_name, mean)
 tempx2=stack(round(tempx))
 
- checkdup=which(duplicated(temp1[ ,c(4:7)]))
+checkdup=which(duplicated(temp1[ ,c(4:7)]))
  if (length(checkdup)>0){
    temp2=temp1[-which(duplicated(temp1[ ,c(4:7)])), ]
    temp2$CN=(tempx2$values[ match(temp2$Gene_name, tempx2$ind)])
@@ -131,14 +129,21 @@ tempx2=stack(round(tempx))
    temp2=temp1
  }
 
+ 
+if (data$`Analysis Mode`=="Tumour"){ 
+  temp1$CN=cut(temp1$CN, breaks=c(-1, 1,  3, 6, 10, 30, 100))
+  fillvals=c("#3182bd", "white", brewer.pal(4, "Reds"))
+}else{
+  temp2$CN=factor(temp2$CN, levels=c(0, 1, 3, 4))
+  fillvals=c("#3182bd", "#9ecae1", "#fc9272","#de2d26", "white")
+}
 
-temp2$CN=factor(temp2$CN, levels=c(0, 1, 3, 4))
 rm1=which(!is.na(temp2$CN))
 temp2=temp2[rm1, ]
 
 colB=temp2$Col
 
-ggplot(temp2, aes(x=Gene_name, y=1, fill=CN))+geom_tile()+theme(axis.text.x = element_blank(), axis.ticks.x = element_blank())+scale_fill_manual(values = c("#3182bd", "#9ecae1", "#fc9272","#de2d26", "white"))+expand_limits(y = 0.25)+geom_text(aes(colour = colB, label = Gene_name), y = 0.35, angle=90)+facet_grid(~SV_chrom, space="free", scales="free")+scale_colour_manual(values = c("blue", "purple", "red"), guide = F)
+ggplot(temp2, aes(x=Gene_name, y=1, fill=CN))+geom_tile()+theme(axis.text.x = element_blank(), axis.ticks.x = element_blank())+scale_fill_manual(values = fillvals)+expand_limits(y = 0.25)+geom_text(aes(colour = colB, label = Gene_name), y = 0.35, angle=90)+facet_grid(~SV_chrom, space="free", scales="free")+scale_colour_manual(values = c("blue", "purple", "red"), guide = F)
 ```
 
 **Multi-gene variants**

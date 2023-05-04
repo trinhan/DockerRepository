@@ -68,29 +68,56 @@ kable((clinSum), col.names = c("Patient Information"))
 
 ## Germline Variants
 
-```{r child = 'germlineSNV-insert.Rmd'}
+```{r evaluate-SNVs-exist}
+# Check whether SNV data exists
+runSNVs=ifelse(is.null(data$SNVsummary), F, T)
+```
+
+`r ifelse(runSNVs==F, print('SNV data not available for this sample'), print(""))`
+
+```{r child = 'germlineSNV-insert.Rmd', eval=runSNVs}
 ```
 
 ## Copy Number Variants
 
-```{r}
+```{r evaluate-CNVs-exist}
 RunCV=ifelse(is.null(data$gCNVAnnotSV), F, T)
+EvalCNV=RunCV
 ```
 
-`r ifelse(RunCV==F, print('CNV analysis not available for this sample'), print(""))`
+`r ifelse(RunCV==F, print('CNV data not available for this sample'), print(""))`
 
-```{r child = 'gatk-cnv-germline-insert.Rmd', eval=RunCV}
+```{r evaluate-CNV-length, eval=RunCV}
+AnnotCNV=read.delim(data$gCNVAnnotSV)
+EvalCNV=ifelse(nrow(AnnotCNV)>0, T, F)
+```
+
+`r ifelse(EvalCNV==F, print('Analysis did not return any CNVs'), print(""))`
+
+```{r child = 'gatk-cnv-germline-insert.Rmd', eval=EvalCNV}
 ```
 
 ## Structural Variants
 
-```{r}
+```{r evaluate-SVs-exist}
+# Check whether the SV file exists
 RunSV=ifelse(is.null(data$gSVAnnotSV), F, T)
+EvalSV=RunSV
 ```
 
-`r ifelse(RunSV==F, print('SV analysis not available for this sample'), print("")) `
+`r ifelse(RunSV==F, print('SV data not available for this sample'), print("")) `
 
-```{r child = 'GermlineSV-insert.Rmd', eval=RunSV}
+```{r evaluate-SV-length, eval=RunSV}
+# Check whether the SV file has length >0
+AnnotSV2=read.delim(data$gSVAnnotSV)
+## remove:  &
+AnnotSV=AnnotSV2[which(AnnotSV2$ACMG_class>=paramfile$AnnotSVACMGcutoff & AnnotSV2$MeanVAF>=paramfile$SVVAF), ]
+EvalSV=ifelse(nrow(AnnotSV)>0, T, F)
+```
+
+`r ifelse(EvalSV==F, print('There are no SVs detected in this sample!'), print(""))`
+
+```{r child = 'SV-Run.Rmd', eval=EvalSV}
 ```
 
 ## Ploidy Summary
@@ -99,7 +126,7 @@ RunSV=ifelse(is.null(data$gSVAnnotSV), F, T)
 CallPloidy=ifelse(is.null(data$ploidyFile), F, T)
 ```
 
-`r ifelse(CallPloidy==F, print('Ploidy information is not available'), print("")) `
+`r ifelse(CallPloidy==F, print('Ploidy information is not available for this sample'), print("")) `
 
 ```{r, eval=CallPloidy}
 PloidyVals=read.delim(data$ploidyFile, skip=1)
@@ -114,11 +141,23 @@ barplot(PloidyVals[24:1 ,2], names.arg = PloidyVals[ 24:1,1], horiz=T, las=2, xl
 #DT::datatable(PloidyVals, rownames = F, options=list(pageLength = 24))
 ```
 
-## Overivew
+## Overview
 
-```{r child='overview-germline.Rmd'}
+```{r}
+RunOverview=ifelse(EvalSV==T & EvalCNV==T, T, F)
+RunOverviewSV=ifelse(EvalSV==T & EvalCNV==F, T, F)
+RunOverviewCNV=ifelse(EvalSV==F & EvalCNV==T, T, F)
 ```
 
+```{r child='overview-germline.Rmd', eval=RunOverview}
+```
+
+```{r child='overview-germline-SNV-SV.Rmd', eval=RunOverviewSV}
+```
+
+
+```{r child='overview-germline-CNV-SNV.Rmd', eval=RunOverviewCNV}
+```
 
 ## Interpretation Guide
 

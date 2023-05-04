@@ -1,0 +1,16 @@
+﻿Variable,ReName
+chr,CHROM
+start,START
+end,END
+Segment_Mean,CN
+Segment_Call,CALL
+Num_Probes,Num_Probes
+genes,GENE
+start_gene,START_GENE
+start_exon,START_EXON
+end_gene,END_GENE
+end_exon,END_EXON
+Pathways,Pathways
+GenesOfInterest,GenesOfInterest
+GTex,GTex
+Cosmic,Cosmic

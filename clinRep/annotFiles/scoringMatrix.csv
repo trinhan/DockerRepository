@@ -1,0 +1,10 @@
+﻿Parameter,ACMG,Cosmic,Pathway,Drug,VUS
+gnomad,,1,1,,1
+coding,,1,1,,1
+cadd,,,1,,1
+pathogenic,,,1,,1
+clinvarpath,1,,,,-1
+clinvardrug,,,,1,-1
+ACMG,1,,,,-1
+Cancer,,1,,,-1
+Pathway,,,1,,-1

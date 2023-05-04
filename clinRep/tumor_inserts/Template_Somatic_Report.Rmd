@@ -68,12 +68,12 @@ kable((clinSum), col.names = c("Patient Information"))
 
 ## Somatic Variants
 
-```{r child = 'somaticSNV-insert.Rmd'}
+```{r child = 'germlineSNV-insert.Rmd'}
 ```
 
 ## Copy Number Variants
 
-```{r}
+```{r, eval=F}
 RunCV=ifelse(is.null(data$gCNVAnnotSV), F, T)
 ```
 
@@ -84,7 +84,7 @@ RunCV=ifelse(is.null(data$gCNVAnnotSV), F, T)
 
 ## Structural Variants
 
-```{r}
+```{r,eval=F}
 RunSV=ifelse(is.null(data$gSVAnnotSV), F, T)
 ```
 

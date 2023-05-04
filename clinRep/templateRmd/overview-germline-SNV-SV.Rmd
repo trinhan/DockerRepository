@@ -1,0 +1,69 @@
+
+Here we report any genes which could be impacted by a combination of SNVs and SVs, below is an overlap of the types of variation found in genes of interest:
+
+```{r, fig.height=5, fig.width=5}
+
+## combine all SNVs together
+STerms=c("SYMBOL", "rsID", "CHROM", "POS", "HGVSp", "Consequence", "gnomAD.AF", "ClinVar.Sig","ClinVar.Disease", "ProteinDomain", "CancerGeneCensus.Tier","CancerMutationCensus.Tier")
+allSNV=rbind(D2[, STerms], D3[ ,STerms], D4[ ,STerms], D5[ ,STerms], D6[ ,STerms])
+allSNV$class=c(rep("Cosmic", nrow(D2)), rep("Pathway", nrow(D3)),
+                rep("Drug", nrow(D4)), rep("VUS", nrow(D5)), rep("ACMG", nrow(D6)))
+
+rmIdx=which(allSNV$Consequence%in%c("synonymous_variant", "intergenic_variant"))
+allSNV=allSNV[setdiff(1:nrow(allSNV), rmIdx), ]
+
+##,  )
+# combine the SVs
+allSV=rbind(PGenesSVfilt, CGenesSVfilt)
+allSV$class=c(rep("Pathway", nrow(PGenesSVfilt)),rep("Cosmic", nrow(CGenesSVfilt)))
+
+# merge together the information
+t1=paste(allSNV$CHROM, allSNV$POS, allSNV$HGVSp)
+t2=paste0("SNV ", allSNV$Consequence)
+
+
+## centralise the names of the samples
+allSNVb=data.frame(SYMBOL=allSNV$SYMBOL, Location=allSNV$ProteinDomain, PopFreq=allSNV$gnomAD.AF, VariantType=t2,Pathogenicity=allSNV$ClinVar.Sig, Disease=allSNV$ClinVar.Disease, VariantCategory=allSNV$class)
+
+if (nrow(allSNVb)>0){
+  allSNVb$Genomic.Pos=t1
+}
+
+
+t3=ifelse(allSV$Haploinsufficiency>1 & allSV$Haploinsufficiency<=3, "Haploinsufficient", 
+          ifelse(allSV$Triplosensitivity>1 & allSV$Triplosensitivity<=3, "Triplosensitive", 
+                 ifelse(allSV$PathogenicSource!="", "Possibly pathogenic", 
+                 ifelse(allSV$BenignSource!="", "Possibly benign", "unknown"))))
+
+# bug in binding when there are 0 rows
+allSVb=data.frame(SYMBOL=allSV$GENE, Genomic.Pos= allSV$SV_ID, Location=allSV$Location, PopFreq=allSV$`Pop Freq`, Pathogenicity=t3,   Disease=allSV$OMIM, VariantCategory=allSV$class)
+
+if (nrow(allSVb)>0){
+ allSVb$VariantType=paste0("SV ", allSV$TYPE)
+}
+
+venn(list(SNV=unique(allSNVb$SYMBOL), SV=unique(allSVb$SYMBOL)))
+```
+
+**Genes with both SNVs and SV/CNV**
+
+```{r}
+a1=intersect(allSNVb$SYMBOL,allSVb$SYMBOL)
+#a2=intersect(allSNVb$SYMBOL,allCNVb$SYMBOL)
+#a3=intersect(allSVb$SYMBOL,allCNVb$SYMBOL)
+a4=unique(a1)
+
+n1=allSNVb[which(allSNVb$SYMBOL%in%a4), ]
+n2=allSVb[which(allSVb$SYMBO%in%a4), ]
+#n3=allCNVb[which(allCNVb$SYMBOL%in%a4), ]
+
+Alldf1=rbind(n1, n2)
+
+``` 
+ 
+Includes: `r sort(print(unique(Alldf1$SYMBOL)))`
+ 
+```{r}
+ DT::datatable(Alldf1,rownames=F, filter = 'top', class='cell-border stripe',extensions="Buttons", options=list(dom="Bfrtip",scoller = TRUE, pageLength = 5,  buttons=c(I('colvis'),'csv', 'excel')))
+```
+

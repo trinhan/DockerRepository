@@ -1,0 +1,21 @@
+{
+"TierAGnomad": 0.1,
+"TierAOnlyCoding": true,
+"TierBGnomad": 0.1,
+"TierBCadd": 1,
+"TierBOnlyCoding": true,
+"TierBPathogenic": false,
+"TierDGnomad": 0.1,
+"TierDCadd": 10,
+"TierDOnlyCoding": true,
+"TierDPathogenic": true,
+"OverallCADD": 20,
+"OverallGnomad": 0.1,
+"AnnotSVACMGcutoff": 3,
+"SVSRfilter": 5,
+"SVPRfilter": 2,
+"SVPass": true,
+"SVVAF": 0.25,
+"CNVfcHigh":2,
+"CNVfcLow": -2
+}
