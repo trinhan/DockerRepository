@@ -208,11 +208,7 @@ Run the following tests in the order below to check everything works:
 	- Test 2: ATEST_NA12878_small_1x.gCNV.annotSV.tsv.gz | Germline | GATK CNV 
 	- Test 3: TEST_TUM_ER002_MPM1.Manta.annotSV.tsv.gz | Tumour | Manta
 	- Test 4: ATEST_NA12878_small_1x.Manta.annotSV.tsv.gz | Germline | Manta
-3. `bash tests/test_functions.sh`
-	- Test 1: FilterCNVs.R
-	- Test 2: CreateGRangesData.R
-	- Test 3: FilterSVs.R 
-4. `bash test/test_compile_germline.sh`
+3. `bash test/test_compile_germline.sh`
 	- Test 1: ATEST_NA12878_small_1x | Germline
 
 
