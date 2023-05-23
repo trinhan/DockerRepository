@@ -16,7 +16,7 @@ AddList="annotFiles/AddList/DNADamage_50_genes.csv"
 ScoreMatrix="annotFiles/scoringMatrix.csv"
 pathwayTerm="DNADamage"
 pathwayList="annotFiles/PathwayList.csv"
-columnEntries="annotFiles/ColumnIDs.csv"
+columnEntries="annotFiles/SV_column_IDs.csv"
 Tissue="skin"
 
 #############################
@@ -26,9 +26,10 @@ Tissue="skin"
 #############################
 TEST1=0
 TEST2=0
-TEST3=0
-TEST4=1
-TEST5=1
+TEST3=1
+TEST4=0
+TEST5=0
+TEST6=0
 
 #############################
 # Test 1: CNV Funcotator
@@ -64,7 +65,7 @@ PassFilt=FALSE
 
 echo "RUNNING TEST 2 - GERMLINE CNV"
 Rscript scripts/SummarizeAnnotSV.R --tsv ${inputSV} --outputname ${sampleName} --germline ${germline} --PASSfilt ${PassFilt} --MSigDB ${MsigDBAnnotation} --GTex ${GTex} --CosmicList ${cosmicGenes} --CNV ${CNV} --AddList ${AddList} --pathwayTerm ${pathwayTerm} --pathwayList ${pathwayList} --Tissue ${Tissue} --ACMGCutoff 2
-Rscript R/FilterSVs.R --tsv ${sampleName}.CNV.formated.tsv --outputname ${sampleName} --mode CNV --CNlow 0 --CNhigh 4
+Rscript R/FilterSVs.R --tsv ${sampleName}.CNV.formated.tsv --outputname ${sampleName} --mode CNV --CNlow 0 --CNhigh 4 --ColsIDs ${columnEntries}
 RESULT=$?
 if [ $RESULT -eq 0 ]; then
   echo TEST2 PASSED
@@ -77,15 +78,15 @@ fi
 # Test 3: SV call - tumour
 #############################
 if [ $TEST3 -eq 1 ]; then
-inputSV="example_data/TEST_TUM_ER002_MPM1.Manta.annotSV.tsv.gz"
-sampleName="TEST_TUM_ER002_MPM1"
+inputSV="example_data/NADOM22-001T.Manta.annotSV.tsv.gz"
+sampleName="NADOM22-001T"
 CNV=FALSE
 germline=FALSE
-PassFilt=FALSE
+PassFilt=TRUE
 
 echo "RUNNING TEST 3 - SV TUMOUR"
 Rscript scripts/SummarizeAnnotSV.R --tsv ${inputSV} --outputname ${sampleName} --germline ${germline} --PASSfilt ${PassFilt} --MSigDB ${MsigDBAnnotation} --GTex ${GTex} --CosmicList ${cosmicGenes} --CNV ${CNV} --AddList ${AddList} --pathwayTerm ${pathwayTerm} --pathwayList ${pathwayList} --Tissue ${Tissue} --ACMGCutoff 2 --SRfilter 3 --PRfilter 0 &&
-Rscript R/FilterSVs.R --tsv ${sampleName}.SV.formated.tsv --outputname ${sampleName} --mode SV --VAF 0.2 --ACMGcutoff 5
+Rscript R/FilterSVs.R --tsv ${sampleName}.SV.formated.tsv --outputname ${sampleName} --mode SV --VAF 0.2 --ACMGcutoff 5 --ColsIDs ${columnEntries}
 RESULT=$?
 if [ $RESULT -eq 0 ]; then
   echo TEST3 PASSED
@@ -136,5 +137,29 @@ if [ $TEST5 -eq 1 ]; then
     echo TEST5 PASSED
   else
     echo TEST5 FAILED
+  fi
+fi
+
+#############################
+# Test 6: GATK CNV Tumour + AnnotSV
+#############################
+
+if [ $TEST6 -eq 1 ]; then
+  echo "RUNNING TEST 6 - TUMOUR CNV on AnnotSV - real data"
+  inputSV="example_data/NAMDOM22-002T.gatkSomaticCNV.annotSV.tsv.gz"
+  sampleName="NAMDOM22-002T"
+  CNV=TRUE
+  germline=FALSE
+
+  Rscript scripts/SummarizeAnnotSV.R --tsv ${inputSV} --outputname ${sampleName} --germline ${germline} --PASSfilt FALSE --MSigDB ${MsigDBAnnotation} --GTex ${GTex} --CosmicList ${cosmicGenes} --CNV ${CNV} --AddList ${AddList} --pathwayTerm ${pathwayTerm} --pathwayList ${pathwayList} --Tissue ${Tissue}  --ACMGCutoff 5 &&
+  Rscript R/FilterSVs.R --tsv ${sampleName}.CNV.formated.tsv --outputname ${sampleName} --mode CNV --CNlow -1 --CNhigh 1
+
+  #Rscript R/FilterCNVsFunco.R --tsv ${sampleName}.CNV.formated.tsv --outputname ${sampleName} --CNlow -1 --CNhigh 1
+
+  RESULT=$?
+  if [ $RESULT -eq 0 ]; then
+    echo TEST6 PASSED
+  else
+    echo TEST6 FAILED
   fi
 fi

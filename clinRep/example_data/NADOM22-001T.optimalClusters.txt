@@ -1,0 +1,2 @@
+Phi	id	barcode	numClust	cellPrev	purity	norm	ploidy	loglik	sdbw	path
+2	NADOM22-001_cluster01	NADOM22-001	1	1	0.7069	0.2931	1.96	-3255520	1.1207	run_ploidy2/NADOM22-001_cluster01

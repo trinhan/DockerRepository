@@ -155,7 +155,7 @@ for (i in 1:ncol(MatrixIn)){
   a1=as.matrix(ScorMat[ ,Nlist])
   b1=as.numeric(MatrixIn[t1 ,i])
   TempMat=a1%*%b1
-  nx=length(t1)
+  nx=length(which(b1>0))
   # Take the rowsum and find the max to identify the gene list
   Glist=which(TempMat==nx)
   Keep3=InputData[Glist, ]

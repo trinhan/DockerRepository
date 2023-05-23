@@ -23,9 +23,10 @@ columnEntries="annotFiles/ColumnIDs.csv"
 # -- toggle below to select which tests to run
 # 0 is off/false; 1 is on/true
 #############################
-TEST1=1
+TEST1=0
 TEST2=0
 TEST3=0
+TEST4=1
 
 #######################
 ## Sample Options here
@@ -99,5 +100,29 @@ if [ $RESULT -eq 0 ]; then
   echo TEST3 PASSED
 else
   echo TEST3 FAILED
+fi
+fi
+
+################################
+# 4. Tumour Only - works
+################################
+ Sample="example_data/NADOM22-001.GRCh38_vep.vcf.gz"
+ SampleName="NADOM22-001T"
+ Output="NADOM22-001_Tum_Only.maf"
+ runMode="Tumour"
+
+if [ $TEST4 -eq 1 ]; then 
+echo "RUNNING TEST 4 - TUMOUR SINGLE SAMPLE VEP"
+Rscript scripts/vepVCF2maf.R --vcffile $Sample --outputfile vep.maf --sampleName $SampleName --canonical T --runMode $runMode --AAlist $AAlist &&
+Rscript scripts/DBAnnotations.R --maffile vep.maf --outputfile dba.maf --sampleName $SampleName --cosmicMut $cosmicMut --cosmicGenes $cosmicGenes --MSigDB $MsigDBAnnotation --pfam $pfam --pirsf $pirsf &&
+paste vep.maf dba.maf > $Output &&
+Rscript scripts/SummarizeVariants.R --maffile $Output --outputname $SampleName --caseName $SampleName --caddscore 10 --Ncallerthresh 1 --AddList $AddList --columnEntries $columnEntries &&
+Rscript scripts/FilterVariants.R --maffile ${SampleName}variantsCoding.filt.maf --scoringRubrik $ScoreMatrix --outputname $SampleName --ACMG $ACMG --pathwayList $pathwayTerms --pathwayFile $pathwayList --gnomadcutoff 0.1 --onlyCoding T --pathogenic T
+RESULT=$?
+
+if [ $RESULT -eq 0 ]; then
+  echo TEST4 PASSED
+else
+  echo TEST4 FAILED
 fi
 fi

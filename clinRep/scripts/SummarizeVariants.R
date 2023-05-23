@@ -143,7 +143,12 @@ print('Extract genotypes and callers specific to the sample')
 # Extract nTotal
 Nx=ValsOnly %>% select(all_of(gnames))
 Nx=data.matrix(data.frame(Nx))
-Nxb=Nx[ , grep(opts$caseName, colnames(Nx))]
+Nxb=Nx[ , grep(gsub("-", "\\.",opts$caseName), colnames(Nx))]
+
+head(gnames)
+head(opts$caseName)
+head(Nx)
+head(Nxb)
   
 ## Extract GT
 GT=ValsOnly %>% select(all_of(gnames2))

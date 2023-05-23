@@ -90,7 +90,11 @@ The following fields are gene level annotations from AnnotSV: please see this do
 ```{r SV-Cosmic}
 viewIdx=c("SV_ID", "GENE", "CHROM", "START","END", "CN", "Location", "Haploinsufficiency", "Triplosensitivity", "OMIM_morbid", "Pathways", "ACMG","Reg.Element.Genes", "Nearest.Splice.Site.bp", "TAD", "BenignSource", "PathogenicSource", "gnomad.pLI","SplitReadVAF", "MeanVAF", "Depth")
 HideIdx=setdiff(1:ncol(S2), match(viewIdx, colnames(S2)))-1
-CGenes=which(S2$Cosmic!="")
+
+#Get the genes of interest: cosmic or risk factor in cancer
+CG1=unique(c(grep("cancer", S2$Pheno), grep("neoplasm", S2$Pheno)))
+CG2=which(S2$MultiSpan[CG1]=="true")
+CGenes=c(which(S2$Cosmic!="" & S2$MultiSpan=="true"), CG1[CG2])
 # label parameters to view by default
 DT::datatable(S2[CGenes, ], rownames=F, filter = 'top', class='cell-border stripe',extensions="Buttons", options=list(dom="Bfrtip",scoller = TRUE, pageLength = 5,  buttons=c(I('colvis'),'csv', 'excel'), columnDefs = list(list(visible=FALSE, targets=HideIdx))))
 ```
@@ -98,7 +102,7 @@ DT::datatable(S2[CGenes, ], rownames=F, filter = 'top', class='cell-border strip
 **Pathway related genes**
 
 ```{r SV-Pathway}
-PGenes=which(S2$GenesOfInterest!="" )
+PGenes=which(S2$GenesOfInterest!=""  & S2$MultiSpan=="true")
 # label parameters to view by default
 DT::datatable(S2[PGenes, ], rownames=F, filter = 'top', class='cell-border stripe',extensions="Buttons", options=list(dom="Bfrtip",scoller = TRUE, pageLength = 5,  buttons=c(I('colvis'),'csv', 'excel'), columnDefs = list(list(visible=FALSE, targets=HideIdx))))
 ```

@@ -16,6 +16,7 @@ PRVAF,PairedReadVAF,FULL
 MeanVAF,MeanVAF,FULL
 GenesOfInterest,GenesOfInterest,ALL
 Pathways,Pathways,ALL
+OMM_Inheritance,Inheritance,ALL
 OMIM_phenotype,OMIM,ALL
 OMIM_morb,OMIM_morbid,ALL
 HI,Haploinsufficiency,ALL
@@ -31,3 +32,5 @@ ACMG_class,ACMG,ALL
 TS,Triplosensitivity,ALL
 TAD_coordinate,TAD,ALL
 RE_gene,Reg.Element.Genes,ALL
+GC_content_left,GC_content_left,ALL
+GC_content_right,GC_content_right,ALL

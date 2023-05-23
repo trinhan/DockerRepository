@@ -1,0 +1,25 @@
+Sample: NADOM22-001T
+Age: NA
+Tumour: UVM
+Treatment: NA
+Patient Summary: Uveal Melanoma 
+Response status: NA
+Metastasis: NA
+Treatment Keywords: DNADamage
+Tissue: eye
+Analysis Mode: Tumour
+SNVsummary: ${snvsummary}
+SNVHallmark: ${snvhallmark}
+SNVVUS: ${snvvus}
+SNVdrugresponse: ${snvdrug}
+SNVcancerRes: ${snvcancer}
+SNVACMG: ${snvacmg}
+CNVSummary: ${cnvSummary}
+CNVFull: ${cnvFull}
+CNVSplit: ${cnvSplit}
+CNVacmg: ${cnvACMG}
+SVSummary: ${svSummary}
+SVFull: ${svFull}
+SVSplit: ${svSplit}
+SVacmg: ${svACMG}
+ploidyFile: ${titanParams}
