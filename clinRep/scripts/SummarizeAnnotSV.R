@@ -26,7 +26,7 @@ opts <- docopt(doc, help=TRUE, version='1.1.0')
 # 0. Set run tags according to input options
 ###########################################
 
-runTag=ifelse(opts$germline==F & opts$CNV==T, F, T)
+#runTag=ifelse(opts$germline==F & opts$CNV==T, F, T)
 
 ############################################
 #1. Load in all required libraries silently
@@ -40,7 +40,6 @@ suppressMessages(library(matrixStats, quietly = T))
 ############################################
 #2. Read in data file and Filter pass tags if available
 ############################################
-
 InputData=read.delim(opts$tsv)
 print(paste0("Number of rows:", nrow(InputData)))
   
@@ -59,7 +58,7 @@ nrowCheck=(nrow(InputData)<=1)
 ############################################
 #3. Filter out Encode Blacklisted regions - runTag; and 
 ############################################
-
+if (opts$funco==F){
 # Remove all regions which are blacklisted and have annotations
 print('Remove blacklisted regions from ENCODE')
 keepidx=which((InputData$ENCODE_blacklist_characteristics_left==""|is.na(InputData$ENCODE_blacklist_characteristics_left)) & 
@@ -72,22 +71,22 @@ print(paste0("Number of rows after Encode review:", nrow(InputData)))
 
 print('Tidy up OMIM tags')
 InputData$OMIM_morb=ifelse(InputData$OMIM_morbid=="yes", "morbid", ifelse(InputData$OMIM_morbid_candidate=="yes", "candidate", "no"))
-
+}
 ############################################
 #4. Filter out regions which do not fulfil the ACMG score cut-off.
 #   If there is no ACMG cut-off, make sure it overlaps a TAD region - runTag
 ############################################
-
+if (opts$funco==F){
 acmgVals=sapply(strsplit(InputData$ACMG_class, "full="), function(x) x[length(x)])
 filtVals=which(acmgVals>=opts$ACMGCutoff | InputData$TAD_coordinate!="")
 
 InputData=InputData[filtVals, ]
 print(paste0("Number of rows after ACMG review:", nrow(InputData)))
-
+}
 ############################################
 #5. Tidy up annotations on pathogenicity/benign
 ############################################
-
+if (opts$funco==F){
 # Instead of having two columns with annotations on deletions and insertions, combine this information into 1 column based on the SV type
 print('Tidy pheno-geno data')
 
@@ -105,23 +104,27 @@ Pheno=ifelse(InputData$SV_type=="DEL", InputData$P_loss_phen, ifelse(InputData$S
                                                                      ifelse(InputData$SV_type=="INS", InputData$P_ins_phen, InputData$P_snvindel_phen)))
 InputData$Pheno=Pheno
 InputData$AF=BAF
-InputData$Psource=Psource
-InputData$Bsource=Bsource
+InputData$PathogenicSource=Psource
+InputData$BenignSource=Bsource
 
 # Filter in an AF if common
 nidx=which(InputData$AF<opts$AFthreshold | is.na(InputData$AF))
 InputData=InputData[nidx, ]
 
+
 ########
 # Note: may want to include a summary of pathogenicity based on annotations?
 #######
 # e.g. 
-#pathogencity=ifelse(allSV$Haploinsufficiency>1 & allSV$Haploinsufficiency<=3, "Haploinsufficient", 
-#ifelse(allSV$Triplosensitivity>1 & allSV$Triplosensitivity<=3, "Triplosensitive", 
-#       ifelse(allSV$PathogenicSource!="", "Possibly pathogenic", 
-#              ifelse(allSV$BenignSource!="", "Possibly benign", "unknown"))))
+print('Add pathogenicity')
 
+pathogenicity=ifelse(InputData$HI>1 & InputData$HI<=3, "Haploinsufficient", 
+ifelse(InputData$TS>1 & InputData$TS<=3, "Triplosensitive", 
+       ifelse(InputData$PathogenicSource!="", "Possibly pathogenic", 
+              ifelse(InputData$BenignSource!="", "Possibly benign", "unknown"))))
 
+InputData$pathogenicity=pathogenicity
+}
 
 ############################################
 #6. Extract the exact genes to search pathways - MSIGSB
@@ -129,8 +132,11 @@ InputData=InputData[nidx, ]
 print('Annotate implicated genes with pathway data')  
 
 # Based on MSigDB
-
+if (opts$funco==T){
+Genes=strsplit(InputData$genes, ";")  
+}else{
 Genes=strsplit(InputData$Gene_name, ";")
+}
 
 PathInH=getGmt(con=opts$MSigDB, geneIdType=SymbolIdentifier(),
                collectionType=BroadCollection(category="h"))
@@ -215,7 +221,7 @@ InputData$Cosmic=Nx2
 ############################################
 
 
-if (runTag){
+if (opts$CNV==F){
 print('Add Genotypes')
 # Figure out how many samples are present
 Nsamp=unlist(strsplit(InputData[ 1,"Samples_ID"], ","))
@@ -230,21 +236,29 @@ if (length(Nsamp2)>0){
   temp=strsplit(as.character(InputData[ ,(match("FORMAT", colnames(InputData))+1) ]), ":")
 }
 
-if (opts$CNV==F){ 
+#if (opts$CNV==F){ 
     print('adding GT values for germline SV')
     GT=sapply(temp, function(x) x[1]) 
     InputData$GT=GT
 }
 
-if (opts$CNV==T){
+if (opts$CNV==T & opts$germline==T){
   print('adding CN values for CNV')
   CN=sapply(temp, function(x) x[2])
   InputData$CN=CN
 }
-}else{
-  print('rename some headers if using the gatk cnv input')
-  coluser=grep("user\\.[0-3]", colnames(InputData))
-  colnames(InputData)[coluser]=c("Nprobes", "CN", "Call")
+
+if (opts$funco==T){
+    print('rename some headers if using the gatk cnv input - is this germline')
+    coluser=grep("user\\.[0-3]", colnames(InputData))
+    colnames(InputData)[coluser]=c("Nprobes", "CN", "Call")
+}
+
+if (opts$CNV==T & opts$germline==F & opts$funco==F) {
+    print('rename some headers if using the gatk cnv input - is this tumour?')
+    coluser=grep("user\\.[0-3]", colnames(InputData))
+    colnames(InputData)[coluser]=c("Nprobes", "log2CN", "Call")
+    InputData$CN=2*2^(InputData$log2CN)
 }
 
 ############################################
@@ -294,6 +308,8 @@ if (opts$CNV==F){
     InputData$ID[which(InputData$SV_type!="BND")]=""
     print(paste0("Number of rows passing after SR and PR filters:", nrow(InputData)))
 }
+
+print(dim(InputData))
 
 ############################################
 #13. Print the raw table to file

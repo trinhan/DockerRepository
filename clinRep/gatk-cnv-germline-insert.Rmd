@@ -9,7 +9,7 @@ T3=read.delim(data$CNVacmg, sep="\t")
 kable(CNVsumm[1:2, ], row.names = F)
 ```
 
-Genes which are Cancer-COSMIC related, or have relevance to the pathway of interest (`r data$TreatmentKeywords`)
+Genes which are Cancer-COSMIC related, or have relevance to the pathway of interest (`r data$"Treatment Keywords"`)
 
 * <span style="color: red;"> Gains or insertions (top) </span>
 * <span style="color: blue;"> Deletions (Bottom) </span>
@@ -39,13 +39,16 @@ ax=tryCatch({kpPlotMarkers(kp, data=genes, labels=genes$hgnc_symbol, text.orient
 The following plot shows regions of gains or losses which is multi region spanning (breakpoints expected to cross entire transcript, an exon or beyond a given intron), colored by:
 
 * <span style="color: red;"> Cosmic Cancer Gene (Tier 1 or 2 oncogene or tumor suppressor gene) </span>
-* <span style="color: blue;"> Impacts the pathway of interest: `r data$TreatmentKeywords`, either through MSigDB annotation or user-defined gene list </span>
-* <span style="color: purple;"> Gene is both in Cosmic List and is a gene of interest list in `r data$TreatmentKeywords` pathway </span>
+* <span style="color: blue;"> Impacts the pathway of interest: `r data$"Treatment Keywords"`, either through MSigDB annotation or user-defined gene list </span>
+* <span style="color: purple;"> Gene is both in Cosmic List and is a gene of interest list in `r data$"Treatment Keywords"` pathway </span>
 
 ```{r, fig.height=3.5}
 ## Visualise the genes of interest
-temp1=T2[which(T2$MultiSpan), c("CHROM", "START", "END","GENE", "Cosmic", "Pathways","CN", "Location")]
-temp1$Col=ifelse((temp1$Cosmic!=""&temp1$Pathways!=""),"purple", ifelse(temp1$Cosmic!="", "red", "blue") )
+temp1=T2[which(T2$MultiSpan), c("CHROM", "START", "END","GENE", "Cosmic", "Pathways","CN", "GenesOfInterest", "Location")]
+idx=which(T2$GenesOfInterest!=""|T2$Cosmic!="")
+temp1$Col=ifelse((temp1$Cosmic!=""&temp1$GenesOfInterest!=""),"purple", ifelse(temp1$Cosmic!="", "red",
+                                                                        ifelse(temp1$GenesOfInterest!="", "blue", "black")))
+temp1=temp1[which(!temp1$Col%in%"black"), ]
 temp1$CN=factor(temp1$CN, levels=c("0", "1","2", "3", "4"))
 temp1$CN[1]=0
 fillvals=list("0"="#3182bd", "1"="#9ecae1", "2"="white", "3"="#fc9272","4"="#de2d26")

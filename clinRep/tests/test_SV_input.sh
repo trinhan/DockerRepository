@@ -24,12 +24,12 @@ Tissue="skin"
 # -- toggle below to select which tests to run
 # 0 is off/false; 1 is on/true
 #############################
-TEST1=0
+TEST1=1
 TEST2=0
-TEST3=1
+TEST3=0
 TEST4=0
 TEST5=0
-TEST6=0
+TEST6=1
 
 #############################
 # Test 1: CNV Funcotator
@@ -41,8 +41,9 @@ if [ $TEST1 -eq 1 ]; then
   sampleName="TEST_TUM_ER002_MPM1"
   CNV=TRUE
   germline=FALSE
+  Funco=TRUE
 
-  Rscript scripts/SummarizeAnnotSV.R --tsv ${inputSV} --outputname ${sampleName} --germline ${germline} --PASSfilt FALSE --MSigDB ${MsigDBAnnotation} --GTex ${GTex} --CosmicList ${cosmicGenes} --CNV ${CNV} --AddList ${AddList} --pathwayTerm ${pathwayTerm} --pathwayList ${pathwayList} --Tissue ${Tissue}
+  Rscript scripts/SummarizeAnnotSV.R --tsv ${inputSV} --outputname ${sampleName} --germline ${germline} --PASSfilt FALSE --MSigDB ${MsigDBAnnotation} --GTex ${GTex} --CosmicList ${cosmicGenes} --CNV ${CNV} --AddList ${AddList} --pathwayTerm ${pathwayTerm} --pathwayList ${pathwayList} --Tissue ${Tissue} --funco ${Funco}
   Rscript R/FilterCNVsFunco.R --tsv ${sampleName}.CNV.formated.tsv --outputname ${sampleName} --CNlow 0 --CNhigh 4
 
   RESULT=$?
@@ -62,9 +63,10 @@ sampleName="ATEST_NA12878_small_1x"
 CNV=TRUE
 germline=TRUE
 PassFilt=FALSE
+Funco=FALSE
 
 echo "RUNNING TEST 2 - GERMLINE CNV"
-Rscript scripts/SummarizeAnnotSV.R --tsv ${inputSV} --outputname ${sampleName} --germline ${germline} --PASSfilt ${PassFilt} --MSigDB ${MsigDBAnnotation} --GTex ${GTex} --CosmicList ${cosmicGenes} --CNV ${CNV} --AddList ${AddList} --pathwayTerm ${pathwayTerm} --pathwayList ${pathwayList} --Tissue ${Tissue} --ACMGCutoff 2
+Rscript scripts/SummarizeAnnotSV.R --tsv ${inputSV} --outputname ${sampleName} --germline ${germline} --PASSfilt ${PassFilt} --MSigDB ${MsigDBAnnotation} --GTex ${GTex} --CosmicList ${cosmicGenes} --CNV ${CNV} --AddList ${AddList} --pathwayTerm ${pathwayTerm} --pathwayList ${pathwayList} --Tissue ${Tissue} --ACMGCutoff 2 --funco ${Funco}
 Rscript R/FilterSVs.R --tsv ${sampleName}.CNV.formated.tsv --outputname ${sampleName} --mode CNV --CNlow 0 --CNhigh 4 --ColsIDs ${columnEntries}
 RESULT=$?
 if [ $RESULT -eq 0 ]; then
@@ -83,9 +85,10 @@ sampleName="NADOM22-001T"
 CNV=FALSE
 germline=FALSE
 PassFilt=TRUE
+Funco=FALSE
 
 echo "RUNNING TEST 3 - SV TUMOUR"
-Rscript scripts/SummarizeAnnotSV.R --tsv ${inputSV} --outputname ${sampleName} --germline ${germline} --PASSfilt ${PassFilt} --MSigDB ${MsigDBAnnotation} --GTex ${GTex} --CosmicList ${cosmicGenes} --CNV ${CNV} --AddList ${AddList} --pathwayTerm ${pathwayTerm} --pathwayList ${pathwayList} --Tissue ${Tissue} --ACMGCutoff 2 --SRfilter 3 --PRfilter 0 &&
+Rscript scripts/SummarizeAnnotSV.R --tsv ${inputSV} --outputname ${sampleName} --germline ${germline} --PASSfilt ${PassFilt} --MSigDB ${MsigDBAnnotation} --GTex ${GTex} --CosmicList ${cosmicGenes} --CNV ${CNV} --AddList ${AddList} --pathwayTerm ${pathwayTerm} --pathwayList ${pathwayList} --Tissue ${Tissue} --ACMGCutoff 2 --SRfilter 3 --PRfilter 0 --funco ${Funco} &&
 Rscript R/FilterSVs.R --tsv ${sampleName}.SV.formated.tsv --outputname ${sampleName} --mode SV --VAF 0.2 --ACMGcutoff 5 --ColsIDs ${columnEntries}
 RESULT=$?
 if [ $RESULT -eq 0 ]; then
@@ -104,9 +107,10 @@ sampleName="ATEST_NA12878_small_1x"
 CNV=FALSE
 germline=TRUE
 PassFilt=FALSE
+Funco=FALSE
 
 echo "RUNNING TEST 4 - SV GERMLINE"
-Rscript scripts/SummarizeAnnotSV.R --tsv ${inputSV} --outputname ${sampleName} --germline ${germline} --PASSfilt ${PassFilt} --MSigDB ${MsigDBAnnotation} --GTex ${GTex} --CosmicList ${cosmicGenes} --CNV ${CNV} --AddList ${AddList} --pathwayTerm ${pathwayTerm} --pathwayList ${pathwayList} --Tissue ${Tissue} --ACMGCutoff 2 --SRfilter 3 --PRfilter 0 && 
+Rscript scripts/SummarizeAnnotSV.R --tsv ${inputSV} --outputname ${sampleName} --germline ${germline} --PASSfilt ${PassFilt} --MSigDB ${MsigDBAnnotation} --GTex ${GTex} --CosmicList ${cosmicGenes} --CNV ${CNV} --AddList ${AddList} --pathwayTerm ${pathwayTerm} --pathwayList ${pathwayList} --Tissue ${Tissue} --ACMGCutoff 2 --SRfilter 3 --PRfilter 0 --funco ${Funco} && 
 Rscript R/FilterSVs.R --tsv ${sampleName}.SV.formated.tsv --outputname ${sampleName} --mode SV --VAF 0.2 --ACMGcutoff 5
 RESULT=$?
 if [ $RESULT -eq 0 ]; then
@@ -126,8 +130,9 @@ if [ $TEST5 -eq 1 ]; then
   sampleName="TEST_TUM_ER002_MPM1"
   CNV=TRUE
   germline=FALSE
+  Funco=FALSE
 
-  Rscript scripts/SummarizeAnnotSV.R --tsv ${inputSV} --outputname ${sampleName} --germline ${germline} --PASSfilt FALSE --MSigDB ${MsigDBAnnotation} --GTex ${GTex} --CosmicList ${cosmicGenes} --CNV ${CNV} --AddList ${AddList} --pathwayTerm ${pathwayTerm} --pathwayList ${pathwayList} --Tissue ${Tissue}  --ACMGCutoff 5 &&
+  Rscript scripts/SummarizeAnnotSV.R --tsv ${inputSV} --outputname ${sampleName} --germline ${germline} --PASSfilt FALSE --MSigDB ${MsigDBAnnotation} --GTex ${GTex} --CosmicList ${cosmicGenes} --CNV ${CNV} --AddList ${AddList} --pathwayTerm ${pathwayTerm} --pathwayList ${pathwayList} --Tissue ${Tissue}  --ACMGCutoff 5 --funco ${Funco}&&
   Rscript R/FilterSVs.R --tsv ${sampleName}.CNV.formated.tsv --outputname ${sampleName} --mode CNV --CNlow -1 --CNhigh 1
 
   #Rscript R/FilterCNVsFunco.R --tsv ${sampleName}.CNV.formated.tsv --outputname ${sampleName} --CNlow -1 --CNhigh 1
@@ -150,8 +155,9 @@ if [ $TEST6 -eq 1 ]; then
   sampleName="NAMDOM22-002T"
   CNV=TRUE
   germline=FALSE
+  Funco=FALSE
 
-  Rscript scripts/SummarizeAnnotSV.R --tsv ${inputSV} --outputname ${sampleName} --germline ${germline} --PASSfilt FALSE --MSigDB ${MsigDBAnnotation} --GTex ${GTex} --CosmicList ${cosmicGenes} --CNV ${CNV} --AddList ${AddList} --pathwayTerm ${pathwayTerm} --pathwayList ${pathwayList} --Tissue ${Tissue}  --ACMGCutoff 5 &&
+  Rscript scripts/SummarizeAnnotSV.R --tsv ${inputSV} --outputname ${sampleName} --germline ${germline} --PASSfilt FALSE --MSigDB ${MsigDBAnnotation} --GTex ${GTex} --CosmicList ${cosmicGenes} --CNV ${CNV} --AddList ${AddList} --pathwayTerm ${pathwayTerm} --pathwayList ${pathwayList} --Tissue ${Tissue}  --ACMGCutoff 5 --funco ${Funco} &&
   Rscript R/FilterSVs.R --tsv ${sampleName}.CNV.formated.tsv --outputname ${sampleName} --mode CNV --CNlow -1 --CNhigh 1
 
   #Rscript R/FilterCNVsFunco.R --tsv ${sampleName}.CNV.formated.tsv --outputname ${sampleName} --CNlow -1 --CNhigh 1
