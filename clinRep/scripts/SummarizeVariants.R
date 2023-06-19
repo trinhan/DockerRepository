@@ -15,51 +15,112 @@ usage: \n SummarizeVariants.R [--maffile=<file> --outputname=<string> --caseName
 library("docopt", quietly = T)
 opts <- docopt(doc)
 
+print(opts)
+#!/usr/bin/Rscript
+
+library("data.table")
+library("dplyr")
+
+# Function to load required libraries
+load_libraries <- function() {
+  suppressMessages(library(data.table, quietly = TRUE))
+  suppressMessages(library(dplyr, quietly = TRUE))
+}
+
+# Function to read relevant column names from maffile
+get_relevant_colnames <- function(file, columnEntriesfile) {
+  mydnames <- fread(file, sep = "\t", nrows = 0)
+  gnames <- colnames(mydnames)[grep("nTot", colnames(mydnames))]
+  gnames2 <- colnames(mydnames)[grep("^GT", colnames(mydnames))]
+  gnames3 <- colnames(mydnames)[grep("VAF", colnames(mydnames))]
+  gnames4 <- colnames(mydnames)[grep("nAlt", colnames(mydnames))]
+  ColNames <- read.csv(columnEntriesfile, header = FALSE)
+  midx=match(ColNames$V1, colnames(mydnames))
+  mNames=colnames(mydnames)[na.omit(midx)]
+  reName=ColNames$V2[which(!is.na(midx))]
+  colnamesList=list(AnnotCols=mNames, AnnotRename=reName, genoCols=c(gnames, gnames2, gnames3, gnames4))
+  colnamesList
+}
+
+
+# Function to read maffile with selected columns
+read_data_file <- function(file, colnamesfile) {
+  # reads in the column names file
+  colnamesList<-get_relevant_colnames(file, colnamesfile)
+  # read in the files
+  AnnotData<-fread(file, sep = "\t", select = colnamesList$AnnotCols, fill = TRUE)
+  colnames(AnnotData)<-colnamesList$AnnotRename
+  ValsData<-fread(file, sep = "\t", select = colnamesList$genoCols, fill = TRUE)
+  ret<-list(AnnotOnly=AnnotData, ValsOnly=ValsData)
+  ret
+}
+
+# Function to remove HLA genes and annotations from genotypes
+remove_hla_genes <- function(data) {
+  rm1<-grep("HLA", data$AnnotOnly$SYMBOL)
+  data$AnnotOnly <- data$AnnotOnly[setdiff(1:nrow(data$AnnotOnly), rm1), ]
+  data$ValsOnly <- data$ValsOnly[setdiff(1:nrow(data$ValsOn), rm1), ]
+  data
+}
+
+# Function to rename columns if they don't exist
+collapse_data_sources <- function(annotData) {
+  cNames<-colnames(annotData)
+  # case1: check if clinvar disease annotations are unique
+  c1<-sapply(annotData$ClinVar.Disease, function(x) strsplit("&", x))
+  c2<-sapply(annotData$ClinVar_Trait, function(x) strsplit("&", x))
+  
+  if (!"ClinVar.Disease" %in% newNames & "ClinVar_Trait" %in% newNames) {
+    colnames(annotData)[which(newNames == "ClinVar_Trait")] <- "ClinVar.Disease"
+  }
+  
+  if (!"ClinVar.Sig" %in% newNames & "ClinSig" %in% newNames) {
+    colnames(annotData)[which(newNames == "ClinSig")] <- "ClinVar.Sig"
+  }
+  
+  if (!"gnomAD.AF" %in% newNames & "gnomad_MAX_AF" %in% newNames) {
+    colnames(annotData)[which(newNames == "gnomad_MAX_AF")] <- "gnomAD.AF"
+  }
+  
+  annotData
+}
+
+# Function to reset the CADD scoring threshold if column does not exist
+reset_cadd_cutoff <- function(opts, newNames) {
+  if (!"CADD" %in% newNames) {
+    print('reset CADD cut-off, not part of selection criteria')
+    opts$caddscore <- 0
+  }
+  opts
+}
+
+
 ############################################
 #1. Load in all required libraries silently
 ############################################
 
-suppressMessages(library(data.table, quietly = T))
-suppressMessages(library(dplyr, quietly = T))
-writeLines('Running SummarizeVariants \n Read in original File.. \n')
+load_libraries()
 
 #####################################################################
 #2. Read in first line of maffile and extract colnames wtih on the total reads(nTot), genotype (GT), VAF and nAlt reads for each caller
 #####################################################################  
 
-mydnames=fread(opts$maffile, sep="\t", nrows=0)
-gnames=colnames(mydnames)[grep("nTot", colnames(mydnames))]
-gnames2=colnames(mydnames)[grep("^GT", colnames(mydnames))]
-gnames3=colnames(mydnames)[grep("VAF", colnames(mydnames))]
-gnames4=colnames(mydnames)[grep("nAlt", colnames(mydnames))]
-
-#####################################################################
-#3. Read in file of column headers to extract
-#####################################################################  
-
-ColNames=read.csv(opts$columnEntries, header=F)
-## check which colnames matches the original file
-midx=match(ColNames$V1, colnames(mydnames))
-mNames=colnames(mydnames)[na.omit(midx)]
-
-#####################################################################
-#4. Read in maffile, only with column names of interest (in step 2 and 3)
-#####################################################################  
-
-InputData=fread(opts$maffile, sep="\t", select=c(mNames, gnames, gnames2, gnames3, gnames4), fill=T)
+InputData<-read_data_file(opts$maffile, opts$columnEntries)
 
 ######################################################################
 #5. Remove HLA genes (hypervariable) and sep annotations from genotypes
 #######################################################################
-rm1=c(grep("HLA", InputData$Hugo_Symbol))
-AnnotOnly=InputData[setdiff(1:nrow(InputData), rm1), 1:length(mNames) ]
-ValsOnly=InputData[setdiff(1:nrow(InputData), rm1), (length(mNames)+1):ncol(InputData) ]
-newNames=ColNames$V2[which(!is.na(midx))]
-colnames(AnnotOnly)=ColNames$V2[which(!is.na(midx))]
+
+InputData<-remove_hla_genes(InputData)
+
+AnnotOnly<-InputData$AnnotOnly
+ValsOnly<-InputData$ValsOnly
+newNames<-colnames(AnnotOnly)
 
 #####################################################
 ##6. rename columns if they don't exist - if bypass onocokb, some inputs may not exist
 ###################################################
+
 if ( !"ClinVar.Disease"%in%newNames & "ClinVar_Trait"%in%newNames){
     print('rename ClinVar Traits as ClinVar Disease')
     colnames(AnnotOnly)[which(newNames=="ClinVar_Trait")]="ClinVar.Disease"
@@ -141,27 +202,27 @@ AnnotOnly$Cancer.Disease.Freq=gsub("\\/", " ", AnnotOnly$Cancer.Disease.Freq)
 
 print('Extract genotypes and callers specific to the sample')
 # Extract nTotal
-Nx=ValsOnly %>% select(all_of(gnames))
+Nx=ValsOnly %>% select(all_of(grep("nTot", colnames(ValsOnly), value=T )))
 Nx=data.matrix(data.frame(Nx))
 Nxb=Nx[ , grep(gsub("-", "\\.",opts$caseName), colnames(Nx))]
 
-head(gnames)
+
 head(opts$caseName)
 head(Nx)
 head(Nxb)
   
 ## Extract GT
-GT=ValsOnly %>% select(all_of(gnames2))
+GT=ValsOnly %>% select(all_of(grep("^GT", colnames(ValsOnly), value=T )))
 GT=data.frame(GT)
 GTb=GT[, grep(opts$caseName, colnames(GT))]
 
 ## Extract VAF
-VAF=ValsOnly %>% select(all_of(gnames3))
+VAF=ValsOnly %>% select(all_of(grep("VAF", colnames(ValsOnly), value=T )))
 VAF=data.frame(VAF)
 VAFb=VAF[ , grep(opts$caseName, colnames(VAF)) ]
 
 ## Extract nAlt
-nAlt=ValsOnly %>% select(all_of(gnames4))
+nAlt=ValsOnly %>% select(all_of(grep("nAlt", colnames(ValsOnly), value=T )))
 nAlt=data.frame(nAlt)
 nAltb=nAlt[ , grep(opts$caseName, colnames(nAlt)) ]
 

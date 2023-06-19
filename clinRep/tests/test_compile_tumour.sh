@@ -2,8 +2,8 @@
 ## Test compilation of the output report for Tumour
 ## Note if there is an error locally go into Rstudio and type Sys.getenv("RSTUDIO_PANDOC")
 # Tumour report status
-sampleName="NADOM22-001T"
-ploidyTar="example_data/NADOM22-001T.optimalClusters.txt"
+sampleName="NADOM22-003T"
+ploidyTar="example_data/NADOM22-003T.optimalClusters.txt"
 
 echo RUNNING TEST COMPILATION FOR ${sampleName} Tumour Mode
 
@@ -34,4 +34,4 @@ cp Template_Somatic_Report.Rmd ${sampleName}_Somatic_Report.Rmd
 
 Path2="${sampleName}_Somatic_Report.Rmd"
 echo run the compilation
-Rscript -e "Sys.setenv(RSTUDIO_PANDOC='/Applications/RStudio.app/Contents/MacOS/quarto/bin');rmarkdown::render('./${sampleName}_Somatic_Report.Rmd')"   
+Rscript -e "Sys.setenv(RSTUDIO_PANDOC='/Applications/RStudio.app/Contents/Resources/app/quarto/bin/tools');rmarkdown::render('./${sampleName}_Somatic_Report.Rmd')"   

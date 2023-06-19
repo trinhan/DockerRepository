@@ -1,45 +1,30 @@
 #### Overview of CNV data
 
-```{r, eval=T, message=F}
-library(karyoploteR)
+```{r CNV-summary, eval=T, message=F}
+# divide the annotation outputs
+CNVsumm=read.delim(data$CNVSummary, sep="\t")
+T2=read.delim(data$CNVSplit, sep="\t")
+kable(CNVsumm[1:2, ], row.names = F)
 ```
 
 ```{r}
 ## Filter out gains vs del
-gain=which(AnnotCNV2$Segment_Mean>=paramfile$CNVfcHigh)
-homloss=which(AnnotCNV$Segment_Mean<=paramfile$CNVfcLow)
+gain=which(T2$Segment_Mean>0)
+homloss=which(T2$Segment_Mean<0)
 ```
 
-
 ```{r,fig.height=6, message=F}
-gainMat <- GRanges(seqnames=AnnotCNV$chr[gain], ranges=IRanges(start=AnnotCNV$start[gain],
-                      end=AnnotCNV$end[gain]), AF=AnnotCNV$Segment_Mean[gain])
+gainMat=tryCatch({CreateGRangesData(T1[gain, ], "Reds",F)}, error=function(e){GRanges()})
+lossMat=tryCatch({CreateGRangesData(T1[loss, ], "Blues",F)}, error=function(e){GRanges()})
 
-if (length(gainMat)>0){
-  gainMat$AFcol=brewer.pal(5, "Reds")[cut(gainMat$AF, c(0,  2, 6, 20, 100))]
-}
-  
-#gainMat$AFcol=ifelse(gainMat$path!="", "#67000d", gainMat$AFcol)
-
-# hetlossMat <-  GRanges(seqnames=paste0("chr",AnnotCNV[hetloss, 2]), ranges=IRanges(start=AnnotCNV[hetloss, 3], end=AnnotCNV[hetloss, 4]), path=AnnotCNV$Psource[hetloss],AF=ifelse(is.na(AnnotCNV$AF[hetloss]), 1, 1-AnnotCNV$AF[hetloss]))
-# 
-# hetlossMat$AFcol=ifelse(hetlossMat$path!="", "#006d2c", hetlossMat$AFcol)
-
-homlossMat<- GRanges(seqnames=AnnotCNV$chr[homloss], ranges=IRanges(start=AnnotCNV$start[homloss],
-                      end=AnnotCNV$end[homloss]), AF=AnnotCNV$Segment_Mean[homloss]) 
-
-if (length(homlossMat)>0){
- homlossMat$AFcol=brewer.pal(5, "Greens")[cut(homlossMat$AF, c(0,  -2, -6, -20,-100))]
+if (length(T2$start_gene)>1){
+  genes=genesAll[na.omit(match(unique(T2$start_gene), genesAll$hgnc_symbol))]
 }
 
-
-UniqueGenesA=unique(unlist(strsplit(AnnotCNV2$GenesOfInterest[c(gain, homloss)], ",")))
-UniqueGenesA=gsub(",","", UniqueGenesA)
-UniqueGenesB=unique(unlist(strsplit(AnnotCNV2$Cosmic[c(gain,homloss)], ", ")))
-UniqueGenesC=AnnotCNV2$genes[grep(data$TreatmentKeywords, AnnotCNV2$GenesOfInterest)]
-Tx3=na.omit(unique(c(UniqueGenesA, UniqueGenesB, UniqueGenesC)))
-Tx3=setdiff(Tx3, data$TreatmentKeywords)
-
+kp <- plotKaryotype(chromosomes=c("autosomal"), genome="hg38",plot.type=2)
+ax=tryCatch({kpPlotRegions(kp, gainMat, col=gainMat$AFcol,data.panel = 1)}, error=function(e){NULL})
+ax=tryCatch({kpPlotRegions(kp, lossMat, col=lossMat$AFcol,data.panel = 2)}, error=function(e){NULL})
+ax=tryCatch({kpPlotMarkers(kp, data=genes, labels=genes$hgnc_symbol, text.orientation = "horizontal", r1=0.75, cex=0.5, adjust.label.position = FALSE)}, error=function(e){NULL})
  if (length(Tx3)>0){
  genes=genesAll[na.omit(match(Tx3, genesAll$hgnc_symbol))]
   }
@@ -66,13 +51,13 @@ chrNames=c(paste("chr", c(1:22), sep=""), "chrX", "chrY")
 
 gList=genes$hgnc_symbol[which(seqnames(genes)%in%chrNames)]
 
-lx1split=strsplit(AnnotCNV2$genes, ",")
+lx1split=strsplit(T2$genes, ",")
 
 lx1splitLength=sapply(lx1split, length)
 
 lx1=which(lx1split%in%gList)
 
-temp1=AnnotCNV2[lx1, c("chr", "start", "end","Segment_Mean", "Segment_Call", "GenesOfInterest", "Cosmic", "genes", "GTex", "Pathways")]
+temp1=T2[lx1, c("chr", "start", "end","Segment_Mean", "Segment_Call", "GenesOfInterest", "Cosmic", "genes", "GTex", "Pathways")]
 temp1$GenesOfInterest[grep(data$TreatmentKeywords, temp1$GenesOfInterest)]=temp1$genes[grep(data$TreatmentKeywords, temp1$GenesOfInterest)]
 
 ContRun=ifelse(nrow(temp1)>1, T, F)

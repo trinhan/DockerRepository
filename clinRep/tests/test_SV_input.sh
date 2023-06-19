@@ -24,9 +24,9 @@ Tissue="skin"
 # -- toggle below to select which tests to run
 # 0 is off/false; 1 is on/true
 #############################
-TEST1=1
+TEST1=0
 TEST2=0
-TEST3=0
+TEST3=1
 TEST4=0
 TEST5=0
 TEST6=1
@@ -99,6 +99,50 @@ fi
 fi
 
 #############################
+# Test 3: SV call - tumour
+#############################
+if [ $TEST3 -eq 1 ]; then
+inputSV="example_data/NADOM22-003T.Manta.annotSV.tsv.gz"
+sampleName="NADOM22-003T"
+CNV=FALSE
+germline=FALSE
+PassFilt=TRUE
+Funco=FALSE
+
+echo "RUNNING TEST 3 - SV TUMOUR"
+Rscript scripts/SummarizeAnnotSV.R --tsv ${inputSV} --outputname ${sampleName} --germline ${germline} --PASSfilt ${PassFilt} --MSigDB ${MsigDBAnnotation} --GTex ${GTex} --CosmicList ${cosmicGenes} --CNV ${CNV} --AddList ${AddList} --pathwayTerm ${pathwayTerm} --pathwayList ${pathwayList} --Tissue ${Tissue} --ACMGCutoff 2 --SRfilter 3 --PRfilter 0 --funco ${Funco} &&
+Rscript R/FilterSVs.R --tsv ${sampleName}.SV.formated.tsv --outputname ${sampleName} --mode SV --VAF 0.2 --ACMGcutoff 5 --ColsIDs ${columnEntries}
+RESULT=$?
+if [ $RESULT -eq 0 ]; then
+  echo TEST3 PASSED
+else
+  echo TEST3 FAILED
+fi
+fi
+
+#############################
+# Test 3: SV call - tumour
+#############################
+if [ $TEST3 -eq 1 ]; then
+inputSV="example_data/NAMDOM22-002T.Manta.annotSV.tsv.gz"
+sampleName="NAMDOM22-002T"
+CNV=FALSE
+germline=FALSE
+PassFilt=TRUE
+Funco=FALSE
+
+echo "RUNNING TEST 3 - SV TUMOUR"
+Rscript scripts/SummarizeAnnotSV.R --tsv ${inputSV} --outputname ${sampleName} --germline ${germline} --PASSfilt ${PassFilt} --MSigDB ${MsigDBAnnotation} --GTex ${GTex} --CosmicList ${cosmicGenes} --CNV ${CNV} --AddList ${AddList} --pathwayTerm ${pathwayTerm} --pathwayList ${pathwayList} --Tissue ${Tissue} --ACMGCutoff 2 --SRfilter 3 --PRfilter 0 --funco ${Funco} &&
+Rscript R/FilterSVs.R --tsv ${sampleName}.SV.formated.tsv --outputname ${sampleName} --mode SV --VAF 0.2 --ACMGcutoff 5 --ColsIDs ${columnEntries}
+RESULT=$?
+if [ $RESULT -eq 0 ]; then
+  echo TEST3 PASSED
+else
+  echo TEST3 FAILED
+fi
+fi
+
+#############################
 # Test 4: SV call - germline
 #############################
 if [ $TEST4 -eq 1 ]; then
@@ -153,6 +197,56 @@ if [ $TEST6 -eq 1 ]; then
   echo "RUNNING TEST 6 - TUMOUR CNV on AnnotSV - real data"
   inputSV="example_data/NAMDOM22-002T.gatkSomaticCNV.annotSV.tsv.gz"
   sampleName="NAMDOM22-002T"
+  CNV=TRUE
+  germline=FALSE
+  Funco=FALSE
+
+  Rscript scripts/SummarizeAnnotSV.R --tsv ${inputSV} --outputname ${sampleName} --germline ${germline} --PASSfilt FALSE --MSigDB ${MsigDBAnnotation} --GTex ${GTex} --CosmicList ${cosmicGenes} --CNV ${CNV} --AddList ${AddList} --pathwayTerm ${pathwayTerm} --pathwayList ${pathwayList} --Tissue ${Tissue}  --ACMGCutoff 5 --funco ${Funco} &&
+  Rscript R/FilterSVs.R --tsv ${sampleName}.CNV.formated.tsv --outputname ${sampleName} --mode CNV --CNlow -1 --CNhigh 1
+
+  #Rscript R/FilterCNVsFunco.R --tsv ${sampleName}.CNV.formated.tsv --outputname ${sampleName} --CNlow -1 --CNhigh 1
+
+  RESULT=$?
+  if [ $RESULT -eq 0 ]; then
+    echo TEST6 PASSED
+  else
+    echo TEST6 FAILED
+  fi
+fi
+
+#############################
+# Test 6: GATK CNV Tumour + AnnotSV
+#############################
+
+if [ $TEST6 -eq 1 ]; then
+  echo "RUNNING TEST 6 - TUMOUR CNV on AnnotSV - real data"
+  inputSV="example_data/NADOM22-003T.gatkSomaticCNV.annotSV.tsv.gz"
+  sampleName="NADOM22-003T"
+  CNV=TRUE
+  germline=FALSE
+  Funco=FALSE
+
+  Rscript scripts/SummarizeAnnotSV.R --tsv ${inputSV} --outputname ${sampleName} --germline ${germline} --PASSfilt FALSE --MSigDB ${MsigDBAnnotation} --GTex ${GTex} --CosmicList ${cosmicGenes} --CNV ${CNV} --AddList ${AddList} --pathwayTerm ${pathwayTerm} --pathwayList ${pathwayList} --Tissue ${Tissue}  --ACMGCutoff 5 --funco ${Funco} &&
+  Rscript R/FilterSVs.R --tsv ${sampleName}.CNV.formated.tsv --outputname ${sampleName} --mode CNV --CNlow -1 --CNhigh 1
+
+  #Rscript R/FilterCNVsFunco.R --tsv ${sampleName}.CNV.formated.tsv --outputname ${sampleName} --CNlow -1 --CNhigh 1
+
+  RESULT=$?
+  if [ $RESULT -eq 0 ]; then
+    echo TEST6 PASSED
+  else
+    echo TEST6 FAILED
+  fi
+fi
+
+#############################
+# Test 6: GATK CNV Tumour + AnnotSV
+#############################
+
+if [ $TEST6 -eq 1 ]; then
+  echo "RUNNING TEST 6 - TUMOUR CNV on AnnotSV - real data"
+  inputSV="example_data/NADOM22-001T.gatkSomaticCNV.annotSV.tsv.gz"
+  sampleName="NADOM22-001T"
   CNV=TRUE
   germline=FALSE
   Funco=FALSE

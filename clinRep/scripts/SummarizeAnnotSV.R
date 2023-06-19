@@ -22,6 +22,73 @@
 library("docopt", quietly = T)
 opts <- docopt(doc, help=TRUE, version='1.1.0')
 
+# Function to filter input data based on the PASS tag
+filter_pass <- function(data) {
+  data[data$FILTER == "PASS" | data$FILTER == ".", ]
+}
+
+# Function to filter input data based on ACMG score cutoff or TAD coordinate overlap
+filter_acmg_tad <- function(data, acmg_cutoff) {
+  acmg_vals <- sapply(strsplit(data$ACMG_class, "full="), function(x) x[length(x)])
+  filt_vals <- which(acmg_vals >= acmg_cutoff | data$TAD_coordinate != "")
+  data[filt_vals, ]
+}
+
+# Function to tidy up annotations on pathogenicity/benign
+tidy_annotations <- function(data, af_threshold) {
+  data$Pheno <- ifelse(data$SV_type == "DEL", data$P_loss_phen,
+                       ifelse(data$SV_type == "DUP", data$P_gain_phen,
+                              ifelse(data$SV_type == "INS", data$P_ins_phen, data$P_snvindel_phen)))
+  data$AF <- ifelse(data$SV_type == "DEL", data$B_loss_AFmax,
+                    ifelse(data$SV_type == "DUP", data$B_gain_AFmax,
+                           ifelse(data$SV_type == "INV", data$B_inv_AFmax, data$B_ins_AFmax)))
+  data <- data[data$AF < af_threshold | is.na(data$AF), ]
+  pathogenicity <- ifelse(data$HI > 1 & data$HI <= 3, "Haploinsufficient",
+                          ifelse(data$TS > 1 & data$TS <= 3, "Triplosensitive",
+                                 ifelse(data$PathogenicSource != "", "Possibly pathogenic",
+                                        ifelse(data$BenignSource != "", "Possibly benign", "unknown"))))
+  data$pathogenicity <- pathogenicity
+  data
+}
+
+annotate_pathways <- function(data, msigdb_file) {
+  genes <- strsplit(data$Gene_name, ";")
+  PathInH <- getGmt(con = msigdb_file, geneIdType = SymbolIdentifier(),
+                    collectionType = BroadCollection(category = "h"))
+  Mx2 <- geneIds(PathInH)
+  GS <- unique(unlist(genes))
+  GS2 <- paste("^", GS, "$", sep = "")
+  Ids2 <- names(PathInH)
+  Ids2 <- gsub("HALLMARK_", "", Ids2)
+  names(Mx2) <- Ids2
+  Mx3 <- stack(Mx2)
+  Tx2 <- sapply(GS, function(x) as.character(Mx3$ind[which(Mx3$values == x)]))
+  Nm2 <- sapply(Tx2, function(x) paste(Mx3$ind[which(Mx3$values == x)], collapse = ";"))
+  Nm2 <- unlist(lapply(strsplit(Nm2, ";"), unique))
+  data$pathway <- ifelse(data$Gene_name != "", sapply(genes, function(x) paste(Nm2[x], collapse = ";")), NA)
+  data
+}
+
+summarize_annotSV <- function(input_file, output_file, acmg_cutoff, af_threshold, msigdb_file) {
+  # Read input data
+  data <- read.table(input_file, header = TRUE, sep = "\t", comment.char = "")
+  
+  # Filter based on PASS tag
+  data <- filter_pass(data)
+  
+  # Filter based on ACMG score or TAD coordinate overlap
+  data <- filter_acmg_tad(data, acmg_cutoff)
+  
+  # Tidy up annotations on pathogenicity/benign
+  data <- tidy_annotations(data, af_threshold)
+  
+  # Annotate implicated genes with pathway data
+  data <- annotate_pathways(data, msigdb_file)
+  
+  # Write output data
+  write.table(data, output_file, sep = "\t", quote = FALSE, row.names = FALSE)
+}
+
 ###########################################
 # 0. Set run tags according to input options
 ###########################################

@@ -38,6 +38,7 @@ library(circlize)
 library(plotly)
 library(RColorBrewer)
 library(biomaRt)
+library(karyoploteR)
 
 #########
 ## 1. Requirements in the YAML file:
@@ -53,7 +54,8 @@ library(biomaRt)
 knitr::opts_chunk$set(echo = FALSE, warning = F, fig.width=12, fig.height=8, warning = F)
 data=read_yaml("final.yml")
 paramfile=read_yaml("parameter.json")
-load("/annotFiles/ensembl_granges_genes_290722.RData")
+source("R/CreateGRangesData.R")
+load("./annotFiles/ensembl_granges_genes_290722.RData")
 ```
 
 ### Sample Information
